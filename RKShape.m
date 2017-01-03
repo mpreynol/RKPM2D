@@ -12,7 +12,9 @@ classdef RKShape < handle
         M; % Moment Matrix
         Minv; % Stored value of matrix Invese
         Mdx; % Moment Matrix Derivative.
+        Mdy; % Moment Matrix Derivative.
         Minvdx; % Inverse Derivative.
+        Minvdy; % Inverse Derivative.
     end
     
     methods
@@ -36,14 +38,16 @@ classdef RKShape < handle
                 counter=counter+2;
             end
         end
-        function H=Hdx(obj,x)
-            % Not Finished Updating!:
-            H=zeros(obj.order*2+1,1);
-            H(1)=0;
+        function H=Hd(obj,x)
+            % order*2+1 rows + SD rows
+            H=zeros(obj.order*2+1,2);
+            H(1,:)=0;
             counter=2;
-            for i=1:2:obj.order
-                H(counter)=(-1)^i*i*(x(1)-obj.cordinates(1))^(i-1);
-                H(counter+1)=(-1)^i*i*(x(2)-obj.cordinates(2))^(i-1);
+            for i=1:obj.order
+                H(counter,1)=(-1)^i*i*(obj.cordinates(1)-x(1))^(i-1);
+                H(counter+1,1)=0;
+                H(counter,2)=0;
+                H(counter+1,2)=(-1)^i*i*(obj.cordinates(2)-x(2))^(i-1);
                 counter=counter+2;
             end
         end
@@ -53,7 +57,7 @@ classdef RKShape < handle
         function setMoment(obj,x)
             Mi=zeros(obj.order*2+1);
             for i=1:(obj.Cloud.numberOfNodes) % Loop through other Nodes in the Mesh
-                if norm(obj.Cloud.Nodes(i).cordinates-x)<obj.a % Only use Nodes from inside dilation of current evaluatioin point
+                if ((obj.Cloud.Nodes(i).cordinates(1)-x(1))^2+(obj.Cloud.Nodes(i).cordinates(2)-x(2))^2)<obj.a^2 % Only use Nodes from inside dilation of current evaluatioin point
                     Mi=Mi+obj.Cloud.Nodes(i).sF.H(x)*obj.Cloud.Nodes(i).sF.H(x)'*obj.Cloud.Nodes(i).weight.w(x);
                 end
             end
@@ -69,7 +73,7 @@ classdef RKShape < handle
         
         % Define Value
         function v=getValue(obj,x)
-            if norm(x-obj.cordinates)<=obj.a
+            if ((x(1)-obj.cordinates(1))^2+(x(2)-obj.cordinates(2))^2)<obj.a^2
                 if (prod(x==obj.cordinates) && obj.weight.singular)
                     v=1;
                 else
@@ -81,36 +85,46 @@ classdef RKShape < handle
             end
         end
         
-        %% Not Finished Updating!:
-        % Processing for Derivative:
+       
+        % Processing for Derivative 
         function setMomentdx(obj,x)
-            Midx=zeros(obj.order+1);
+            Midx=zeros(obj.order*2+1);
+            Midy=zeros(obj.order*2+1);
             for i=1:(obj.Cloud.numberOfNodes)
-                if abs(obj.Cloud.Nodes(i).cordinates-x)<obj.a % Only use Nodes from inside dilation of current evaluatioin point
-                    Midx=Midx+obj.Cloud.Nodes(i).sF.Hdx(x)*obj.Cloud.Nodes(i).sF.H(x)'*obj.Cloud.Nodes(i).weight.w(x)+ ...
-                        obj.Cloud.Nodes(i).sF.H(x)*obj.Cloud.Nodes(i).sF.Hdx(x)'*obj.Cloud.Nodes(i).weight.w(x)+...
-                        obj.Cloud.Nodes(i).sF.H(x)*obj.Cloud.Nodes(i).sF.H(x)'*obj.Cloud.Nodes(i).weight.wx(x);
+                if ((x(1)-obj.cordinates(1))^2+(x(2)-obj.cordinates(2))^2)<obj.a^2 % Only use Nodes from inside dilation of current evaluatioin point
+                    % Define Preliminary Values:
+                    W=obj.Cloud.Nodes(i).weight.w(x);
+                    H=obj.Cloud.Nodes(i).sF.H(x);
+                    DH=obj.Cloud.Nodes(i).sF.Hd(x);
+                    DW=obj.Cloud.Nodes(i).weight.wx(x);
+                    % Compute Moment Matrix:
+                    Midx=Midx+DH(:,1)*H'*W+H*DH(:,1)'*W+H*H'*DW(1);
+                    Midy=Midy+DH(:,2)*H'*W+H*DH(:,2)'*W+H*H'*DW(2);
                 end
-            end
-            
+            end     
             obj.Mdx=Midx;
+            obj.Mdy=Midy;
             
-              if sum(isnan(obj.Mdx))>0
-                  obj.Mdx;
-              end
+            % Compute Inverse Moment Matrix
             obj.Minvdx=-obj.Minv*obj.Mdx*obj.Minv;
+            obj.Minvdy=-obj.Minv*obj.Mdy*obj.Minv;
         end
         
         % Define Derivative:
-        function vDx=getValueDx(obj,x)
-            if abs(x-obj.cordinates)<=obj.a
-                obj.setMoment(x); % This isn't eff! Need to find a way to only process it once per "point"
+        function vDx=getValueDx(obj,x) % Returns [dx;dy]
+            vDx=zeros(length(x),1);
+            if ((x(1)-obj.cordinates(1))^2+(x(2)-obj.cordinates(2))^2)<obj.a^2
+                obj.setMoment(x);
                 obj.setMomentdx(x);
-                vDx=obj.H(obj.cordinates)'*(obj.Minvdx*obj.H(x)*obj.weight.w(x)+...
-                    obj.Minv*obj.Hdx(x)*obj.weight.w(x)+...
-                    obj.Minv*obj.H(x)*obj.weight.wx(x));
+                H0=obj.H(obj.cordinates);
+                W=obj.weight.w(x);
+                H=obj.H(x);
+                DH=obj.Hd(x);
+                DW=obj.weight.wx(x);
+                vDx(1)=H0'*(obj.Minvdx*H*W+obj.Minv*DH(:,1)*W+obj.Minv*H*DW(1));
+                vDx(2)=H0'*(obj.Minvdy*H*W+obj.Minv*DH(:,2)*W+obj.Minv*H*DW(2));
             else
-                vDx=0;
+                vDx=[0;0];
             end
         end
         

@@ -50,8 +50,7 @@ classdef Weight < handle
         end
         
         % Weight Function
-        function weights = weights(obj,x)
-            obj.F=obj.f(x);
+        function weights = weights(obj,x)   
             z=zeros(length(x),1);
             weights=zeros(length(x),1);
             for i=1:length(x);
@@ -64,6 +63,7 @@ classdef Weight < handle
                     weights(i)=4/3-4*z(i)+4*z(i)^2-4/3*z(i)^3;
                 end
                 if obj.singular
+                    obj.F=obj.f(x);
                     weights(i)=weights(i)/obj.F;
                 end
             end
@@ -73,9 +73,7 @@ classdef Weight < handle
         function wx=derivative(obj,x)
             z=zeros(length(x),1);
             dz=zeros(length(x),1);
-            wx=zeros(length(x),1);
-            obj.F=obj.f(x);
-            obj.DF=obj.df(x);
+            wx=zeros(length(x),1);  
             for i=1:length(x)  
                 z(i)=abs(obj.s(i)-x(i))/obj.a;
                 dz(i)=(obj.s(i)-x(i))/abs(obj.s(i)-x(i))/obj.a;
@@ -90,6 +88,8 @@ classdef Weight < handle
                     wx(i)=-4*dz(i)+8*z(i)*dz(i)-4*z(i).^2*dz(i);
                 end
                 if obj.singular
+                    obj.F=obj.f(x);
+                    obj.DF=obj.df(x);
                     wx(i)=(obj.F*wx(i)-obj.w(x)*obj.DF(i))/(obj.F^2);
                 end
             end

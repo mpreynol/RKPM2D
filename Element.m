@@ -25,11 +25,11 @@ classdef Element < handle
         end
         
         function getIntCord=getIntCord(obj,number)
-            % Returns in 2D a row vector of: x,y cordinates and the jacobian
+            % Returns in 2D a row vector of: x,y cordinates, integration_weight*jacobian
            parametricCords=[obj.G2(number,1),obj.G2(number,2)]; 
            % Set Shape Functions to get our Mapping:
            obj.Shape.setAll(parametricCords(1),parametricCords(2));
-           getIntCord=[obj.Shape.X, obj.Shape.Y, obj.Shape.j];
+           getIntCord=[obj.Shape.X, obj.Shape.Y, obj.Shape.j*obj.G2(number,3)];
         end
         
     end
