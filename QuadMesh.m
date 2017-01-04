@@ -75,8 +75,8 @@ classdef QuadMesh < handle
         end
         
         function actualizedPoints=createPoints(obj,numPoints)
-            % Only can Create points in rectangular grid with bottom left
-            % corner in the origin for now
+            % Creates a Random grid of points starting at the the origin
+            % and right and up from there.
             meshLimits=obj.meshLimits;
             actualizedPoints=[];
             Area=obj.meshArea();
@@ -111,6 +111,7 @@ classdef QuadMesh < handle
                 end
             end
         end
+        
     end
 end
 

@@ -6,6 +6,7 @@ classdef MeshPlot<handle
     end
     
     methods(Static)
+        
         function plotOriginal(Mesh)
             for i=1:size(Mesh,2)
                 x=Mesh(i).x; x=[x;x(1)];
@@ -26,6 +27,15 @@ classdef MeshPlot<handle
                 plot((x+scale*ux),(y+scale*uy),'-b')
                 hold on
             end           
+        end
+        function plotQuadraturePoints(Mesh)
+            for i=1:Mesh.noElements
+                for j=1:size(Mesh.Elements(i).G2,1)
+                    Cords=Mesh.Elements(i).getIntCord(j);
+                    plot(Cords(1),Cords(2),'b.')
+                    hold on
+                end
+            end
         end
         function plotexx(Mesh)
             maxValue=0;

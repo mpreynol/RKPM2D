@@ -7,6 +7,7 @@ classdef Cloud < handle
         Nodes=[]; % List of Object Nodes
         numberOfNodes; % Number of nodes in the cloud
         order; % Order of basis Functions
+        u; % Solutions
     end
     
     methods
@@ -22,7 +23,7 @@ classdef Cloud < handle
         function setNodeObjects(obj)
             obj.Nodes=RKNode.empty(obj.numberOfNodes,0);
             for i=1:obj.numberOfNodes
-                obj.Nodes(i)=RKNode(obj.nodalData(i,1),[obj.nodalData(i,2);obj.nodalData(i,3)],obj.nodalData(i,4),obj.order,obj,obj.nodalData(i,5));
+                obj.Nodes(i)=RKNode(obj.nodalData(i,1),[obj.nodalData(i,2);obj.nodalData(i,3)],obj.nodalData(i,4),obj.order,[obj.nodalData(i,5);obj.nodalData(i,6)],obj);
             end
         end
         
@@ -40,6 +41,83 @@ classdef Cloud < handle
                    end
               end
            end
+        end
+        
+        function plotCloud(obj)
+            for i=1:obj.numberOfNodes
+                refresh
+                scatter(obj.nodalData(i,2),obj.nodalData(i,3),'ko','filled')
+                hold on
+            end
+        end
+        
+        function [ufull] = reAssembleUnknowns(obj,ureduced,BE)
+            % Method reassembles a full 'u' vector for a reduced oned
+            L=BE==-inf;
+            ufull=zeros(length(BE),1);
+            counter=1;
+            for i=1:length(BE)
+               if L(i)==1
+                   ufull(i)=ureduced(counter);
+                   counter=counter+1;
+               else
+                   ufull(i)=BE(i);
+               end
+            end
+        end
+        
+        function parseSolution(obj,u)
+            obj.u=u;
+            for i=1:obj.numberOfNodes
+                dof=[obj.Nodes(i).nodeNumber*2-1;obj.Nodes(i).nodeNumber*2];
+                obj.Nodes(i).u=u(dof);
+            end
+        end
+        
+        function plotCloudU(obj,scale)
+            for i=1:obj.numberOfNodes
+                uNodes=obj.Nodes(i).u;
+                scatter(obj.Nodes(i).cordinates(1)+uNodes(1)*scale,obj.Nodes(i).cordinates(2)+uNodes(2)*scale,'bo')
+                hold on
+            end
+        end
+        
+        function [K,F]=integrateDomain(obj,C,Q,Mesh)
+            n=obj.numberOfNodes;
+            K=zeros(n*2);
+            F=zeros(n*2,1);
+            totalPoints=Mesh.noElements*size(Mesh.Elements(1).G2,1);
+            quadCounter=1;
+            for k=1:Mesh.noElements % Loop through Elements
+                for l=1:size(Mesh.Elements(k).G2,1) % Loop through Quadrature Points
+                    display([num2str(quadCounter * 100 / totalPoints) , ' Percent Complete'])
+                    quadCounter=quadCounter+1;
+                    Cords=Mesh.Elements(k).getIntCord(l); x=Cords(1); y=Cords(2); Jw=Cords(3); % Jw = Jacobian * Quadrature Weight
+                    for a=1:n % Loop over Shape Functions
+                        for b=1:n % Loop over Shape Functions
+                            if b>=a
+                                CordsA=obj.Nodes(a).cordinates; CordsB=obj.Nodes(b).cordinates;
+                                if ((CordsA(1)-CordsB(1))^2+(CordsA(2)-CordsB(2))^2)<obj.Nodes(a).a^2
+                                    NDa=obj.Nodes(a).sF.getValueDx([x;y]);
+                                    NDb=obj.Nodes(b).sF.getValueDx([x;y]);
+                                    Ba=[NDa(1),0;0,NDa(2);NDa(2),NDa(1)];
+                                    Bb=[NDb(1),0;0,NDb(2);NDb(2),NDb(1)];
+                                    Kab=Ba'*C*Bb*Jw;
+                                    K(2*a-1,2*b-1)=K(2*a-1,2*b-1)+Kab(1,1);
+                                    K(2*a-1,2*b)=K(2*a-1,2*b)+Kab(1,2);
+                                    K(2*a,2*b-1)=K(2*a,2*b-1)+Kab(2,1);
+                                    K(2*a,2*b)=K(2*a,2*b)+Kab(2,2);
+                                else
+                                    %Pass
+                                end
+                            end
+                        end
+                        F(2*a-1)=F(2*a-1)+obj.Nodes(a).sF.getValue([x;y])*Q(1);
+                        F(2*a)=F(2*a)+obj.Nodes(a).sF.getValue([x;y])*Q(2);
+                    end
+                end
+            end
+            K=triu(K)+tril(K',-1);
         end
     end
     

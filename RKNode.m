@@ -8,24 +8,25 @@ classdef RKNode < handle
         order; % order of approximation
         nodeNumber; % Global Node Number
         cordinates; % List of Cordinates for the Node
-        naturalBoundary = false; % Flag for the natural Boundary Status
-        essentialBoundary = false; % Flag for the essential Boundary Status
+        BE; % Flag for the essential Boundary Status
         singularKernal=false; % Flag for whether or not Node will use Singular Kernal
         Cloud; % Cloud Data Handle
+        u; % Solution Vector
     end
     
     methods
-        function obj = RKNode(nodeNumber,cordinates,dilation,order,Cloud,varargin)
+        function obj = RKNode(nodeNumber,cordinates,dilation,order,BE,Cloud)
             % Set Attributes:
             obj.nodeNumber = nodeNumber;
             obj.cordinates=cordinates;
             obj.a=dilation;
+            obj.BE=BE;
             obj.order=order;
             obj.weight=[];
             obj.Cloud=Cloud;
             %obj.weight=Weight(cordinates,dilation);
-            if nargin>5
-                obj.singularKernal=varargin{1};
+            if sum(BE~=-Inf)
+                obj.singularKernal=false;
             end
             
             % Define Soldier Classes: 
@@ -41,6 +42,11 @@ classdef RKNode < handle
         % Sets Initial Weight Function
         function setWeightFunction(obj)
             obj.weight=Weight(obj.cordinates,obj.a,obj.singularKernal);
+        end
+        
+        % Set Value of U
+        function setU(obj,u)
+            obj.u=u;
         end
             
     end

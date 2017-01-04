@@ -91,7 +91,7 @@ classdef RKShape < handle
             Midx=zeros(obj.order*2+1);
             Midy=zeros(obj.order*2+1);
             for i=1:(obj.Cloud.numberOfNodes)
-                if ((x(1)-obj.cordinates(1))^2+(x(2)-obj.cordinates(2))^2)<obj.a^2 % Only use Nodes from inside dilation of current evaluatioin point
+                if ((x(1)-obj.Cloud.Nodes(i).cordinates(1))^2+(x(2)-obj.Cloud.Nodes(i).cordinates(2))^2)<obj.a^2 % Only use Nodes from inside dilation of current evaluatioin point
                     % Define Preliminary Values:
                     W=obj.Cloud.Nodes(i).weight.w(x);
                     H=obj.Cloud.Nodes(i).sF.H(x);
