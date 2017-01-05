@@ -26,8 +26,8 @@ classdef Weight < handle
            f=(((x(1)-obj.s(1))/obj.a)^2+((x(2)-obj.s(2))/obj.a)^2)^obj.p;
         end
         function df=df(obj,x)
-            df(1)=2*obj.p*(((x(1)-obj.s(1))/obj.a))^(2*obj.p-1)*(1/obj.a);
-            df(2)=2*obj.p*(((x(2)-obj.s(2))/obj.a))^(2*obj.p-1)*(1/obj.a);
+            df(1)=obj.p*obj.f(x)^(obj.p-1)*2*(x(1)-obj.s(1))/(obj.a^2);
+            df(2)=obj.p*obj.f(x)^(obj.p-1)*2*(x(2)-obj.s(2))/(obj.a^2);
         end
         
         function w = w(obj,x) % x,s is an array of length SD
@@ -46,6 +46,7 @@ classdef Weight < handle
                     end
                 end
                 wx(i)=derivative(i)*temp;
+                temp=1;
             end
         end
         
@@ -54,7 +55,7 @@ classdef Weight < handle
             z=zeros(length(x),1);
             weights=zeros(length(x),1);
             for i=1:length(x);
-                z(i)=abs(obj.s(i)-x(i))/obj.a;   
+                z(i)=abs(x(i)-obj.s(i))/obj.a;   
                 if z(i)>=1
                     weights(i)=0;
                 elseif z(i)<1/2
@@ -75,8 +76,8 @@ classdef Weight < handle
             dz=zeros(length(x),1);
             wx=zeros(length(x),1);  
             for i=1:length(x)  
-                z(i)=abs(obj.s(i)-x(i))/obj.a;
-                dz(i)=(obj.s(i)-x(i))/abs(obj.s(i)-x(i))/obj.a;
+                z(i)=abs(x(i)-obj.s(i))/obj.a;   
+                dz(i)=(x(i)-obj.s(i))/abs(x(i)-obj.s(i))/obj.a;
                 if z(i)<eps && z(i)>-eps
                     dz(i)=0;
                 end

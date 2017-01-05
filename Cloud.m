@@ -7,7 +7,7 @@ classdef Cloud < handle
         Nodes=[]; % List of Object Nodes
         numberOfNodes; % Number of nodes in the cloud
         order; % Order of basis Functions
-        u; % Solutions
+        u; % Solutions *** Lack of Kronecker Means this isn't the PDE Solution Yet
     end
     
     methods
@@ -46,7 +46,7 @@ classdef Cloud < handle
         function plotCloud(obj)
             for i=1:obj.numberOfNodes
                 refresh
-                scatter(obj.nodalData(i,2),obj.nodalData(i,3),'ko','filled')
+                scatter(obj.nodalData(i,2),obj.nodalData(i,3),'ko')
                 hold on
             end
         end
@@ -67,6 +67,7 @@ classdef Cloud < handle
         end
         
         function parseSolution(obj,u)
+            % Method insets solved for coeff's 'u' into the Cloud and Nodes
             obj.u=u;
             for i=1:obj.numberOfNodes
                 dof=[obj.Nodes(i).nodeNumber*2-1;obj.Nodes(i).nodeNumber*2];
@@ -75,11 +76,15 @@ classdef Cloud < handle
         end
         
         function plotCloudU(obj,scale)
-            for i=1:obj.numberOfNodes
-                uNodes=obj.Nodes(i).u;
-                scatter(obj.Nodes(i).cordinates(1)+uNodes(1)*scale,obj.Nodes(i).cordinates(2)+uNodes(2)*scale,'bo')
-                hold on
-            end
+                for j=1:obj.numberOfNodes
+                    Cords=obj.Nodes(j).cordinates;
+                    deformation=0;
+                    for i=1:obj.numberOfNodes
+                        deformation=deformation+obj.Nodes(i).sF.getValue([Cords(1);Cords(2)])*obj.Nodes(i).u;
+                    end
+                    scatter(Cords(1)+scale*deformation(1),Cords(2)+scale*deformation(2),'bo')
+                    hold on
+                end
         end
         
         function [K,F]=integrateDomain(obj,C,Q,Mesh)
@@ -112,12 +117,19 @@ classdef Cloud < handle
                                 end
                             end
                         end
-                        F(2*a-1)=F(2*a-1)+obj.Nodes(a).sF.getValue([x;y])*Q(1);
-                        F(2*a)=F(2*a)+obj.Nodes(a).sF.getValue([x;y])*Q(2);
+                        F(2*a-1)=F(2*a-1)+obj.Nodes(a).sF.getValue([x;y])*Jw*Q(1);
+                        F(2*a)=F(2*a)+obj.Nodes(a).sF.getValue([x;y])*Jw*Q(2);
                     end
                 end
             end
             K=triu(K)+tril(K',-1);
+        end
+        
+        function U=returnInterpolatedU(obj,x)
+            U=zeros(2,1);
+           for i=1:obj.numberOfNodes
+               U=U+obj.Nodes(i).sF.getValue(x)*obj.Nodes(i).u;
+           end
         end
     end
     

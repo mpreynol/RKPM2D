@@ -11,7 +11,7 @@ classdef RKNode < handle
         BE; % Flag for the essential Boundary Status
         singularKernal=false; % Flag for whether or not Node will use Singular Kernal
         Cloud; % Cloud Data Handle
-        u; % Solution Vector
+        u; % Solutions *** Lack of Kronecker Means this isn't the PDE Solution Yet
     end
     
     methods

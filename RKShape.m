@@ -1,7 +1,7 @@
 classdef RKShape < handle
     %Class defines a RKPM shape function 
     % Currently implemeted in 2D!!!
-    % Written by Mathew Reynolds on Dec 19, 2016
+    % Written by Mathew Reynolds on Dec 26, 2016
     
     properties
         a; % Dilation Parameter (Double)
@@ -40,14 +40,15 @@ classdef RKShape < handle
         end
         function H=Hd(obj,x)
             % order*2+1 rows + SD rows
+            % the first column is H,x and the second colum is H,y
             H=zeros(obj.order*2+1,2);
             H(1,:)=0;
             counter=2;
             for i=1:obj.order
-                H(counter,1)=(-1)^i*i*(obj.cordinates(1)-x(1))^(i-1);
+                H(counter,1)=i*(x(1)-obj.cordinates(1))^(i-1);
                 H(counter+1,1)=0;
                 H(counter,2)=0;
-                H(counter+1,2)=(-1)^i*i*(obj.cordinates(2)-x(2))^(i-1);
+                H(counter+1,2)=i*(x(2)-obj.cordinates(2))^(i-1);
                 counter=counter+2;
             end
         end
