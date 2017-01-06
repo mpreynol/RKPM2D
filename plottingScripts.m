@@ -26,7 +26,7 @@ W=Weight(xI,a,0);
 for i=1:size(X,1) % Columns
     for j=1:size(Y,2) % Rows
         z=W.wx([X(i,j);Y(i,j)]);
-        Z(i,j)=z(1);
+        Z(i,j)=z(2);
     end
 end
 surf(X,Y,Z)
@@ -35,7 +35,6 @@ surf(X,Y,Z)
 %% Plot Shape Function
 figure(1)
 Z=zeros(size(X,1));
-shape=15;
 for i=1:size(X,1) % Columns
     for j=1:size(Y,2) % Rows  
         Z(i,j)=PointCloud.Nodes(shape).sF.getValue([X(i,j);Y(i,j)]);
@@ -52,15 +51,31 @@ end
 scatter(PointCloud.Nodes(shape).cordinates(1),PointCloud.Nodes(shape).cordinates(2),'r+')
 
 %% Test PU:
-xTest=[rand()*2,rand()*2];
+xTest=[0,1];
 pu=0;
 for i=1:PointCloud.numberOfNodes
    pu=pu+PointCloud.Nodes(i).sF.getValue([xTest(1);xTest(2)]);
 end
 assert(abs(pu-1)<eps*10)
+%% Test NU:
+for i=1:1000
+xTest=[rand()*2,rand()*2];
+nu1=0;
+nu2=0;
+for i=1:PointCloud.numberOfNodes
+    temp=PointCloud.Nodes(i).sF.getValueDx([xTest(1);xTest(2)]);
+    nu1=nu1+temp(1);
+    nu2=nu2+temp(2);
+end
+assert(abs(nu1+nu2)<5*eps)
+end
+
 %% Point on Shape Function Deriviative
-x=[0.08452;0.08452];
-z=PointCloud.Nodes(1).sF.getValueDx(x)
+shape=4;
+T=Mesh.Elements(1).getIntCord(4);
+x=[T(1);T(2)];
+value=PointCloud.Nodes(shape).sF.getValue(x)
+derivative=PointCloud.Nodes(shape).sF.getValueDx(x)
 
 %% Plot Shape Function Derivative
 figure(2)

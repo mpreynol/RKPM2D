@@ -1,0 +1,12 @@
+This repo is for a 2D implementation of RKPM written by Mathew Reynolds in December of 2016. 
+
+Code Structure:
+   Primary Classes:
+      -QuadMesh: Defines background mesh. Uses a 2D FEM mesh with shape functions. This provides a robust mechanism to retrieve the spatial cordinates and jacobian value for an arbitrary isoparametric element.
+      -GridRectangle: Defines the Nodes and Connectivity for a 2D rectangular mesh.
+      -Boundary: Assigns nodes as a boundary value in an output array.
+      -Quadrature: Quadrature tables in 1D and 2D. 2D tables are organized as the tensor product to reduce loops later.
+      -Cloud: Defines a could of RKPM Nodes.
+      -
+
+

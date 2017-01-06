@@ -46,7 +46,7 @@ classdef Cloud < handle
         function plotCloud(obj)
             for i=1:obj.numberOfNodes
                 refresh
-                scatter(obj.nodalData(i,2),obj.nodalData(i,3),'ko')
+                scatter(obj.nodalData(i,2),obj.nodalData(i,3),'ko','filled')
                 hold on
             end
         end
@@ -91,20 +91,16 @@ classdef Cloud < handle
             n=obj.numberOfNodes;
             K=zeros(n*2);
             F=zeros(n*2,1);
-            totalPoints=Mesh.noElements*size(Mesh.Elements(1).G2,1);
-            quadCounter=1;
             for k=1:Mesh.noElements % Loop through Elements
                 for l=1:size(Mesh.Elements(k).G2,1) % Loop through Quadrature Points
-                    display([num2str(quadCounter * 100 / totalPoints) , ' Percent Complete'])
-                    quadCounter=quadCounter+1;
-                    Cords=Mesh.Elements(k).getIntCord(l); x=Cords(1); y=Cords(2); Jw=Cords(3); % Jw = Jacobian * Quadrature Weight
+                    Cords=Mesh.Elements(k).getIntCord(l); Jw=Cords(3); % Jw = Jacobian * Quadrature Weight
                     for a=1:n % Loop over Shape Functions
                         for b=1:n % Loop over Shape Functions
                             if b>=a
                                 CordsA=obj.Nodes(a).cordinates; CordsB=obj.Nodes(b).cordinates;
                                 if ((CordsA(1)-CordsB(1))^2+(CordsA(2)-CordsB(2))^2)<obj.Nodes(a).a^2
-                                    NDa=obj.Nodes(a).sF.getValueDx([x;y]);
-                                    NDb=obj.Nodes(b).sF.getValueDx([x;y]);
+                                    NDa=Mesh.Elements(k).StoredRKPM(2:3,a,l);
+                                    NDb=Mesh.Elements(k).StoredRKPM(2:3,b,l);
                                     Ba=[NDa(1),0;0,NDa(2);NDa(2),NDa(1)];
                                     Bb=[NDb(1),0;0,NDb(2);NDb(2),NDb(1)];
                                     Kab=Ba'*C*Bb*Jw;
@@ -117,8 +113,8 @@ classdef Cloud < handle
                                 end
                             end
                         end
-                        F(2*a-1)=F(2*a-1)+obj.Nodes(a).sF.getValue([x;y])*Jw*Q(1);
-                        F(2*a)=F(2*a)+obj.Nodes(a).sF.getValue([x;y])*Jw*Q(2);
+                        F(2*a-1)=F(2*a-1)+Mesh.Elements(k).StoredRKPM(1,a,l)*Jw*Q(1);
+                        F(2*a)=F(2*a)+Mesh.Elements(k).StoredRKPM(1,a,l)*Jw*Q(2);
                     end
                 end
             end

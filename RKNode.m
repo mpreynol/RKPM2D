@@ -26,7 +26,7 @@ classdef RKNode < handle
             obj.Cloud=Cloud;
             %obj.weight=Weight(cordinates,dilation);
             if sum(BE~=-Inf)
-                obj.singularKernal=false;
+                obj.singularKernal=true;
             end
             
             % Define Soldier Classes: 

@@ -10,6 +10,9 @@ classdef Element < handle
         G2=[]; % Guassian Integration Array in 2D
         G1=[]; % Guassian Integration Array in 1D
         Shape; % object containing shape functions
+        StoredRKPM=[]; % Values of RKPM Shape Functions stored at each integration point size: (1+SD)x(NP)xGP
+        % Order of RKPM array is same as G2 Array!!!
+        % The third Dimension of the RKPM array handles gauss points
     end
     
     methods
@@ -30,6 +33,10 @@ classdef Element < handle
            % Set Shape Functions to get our Mapping:
            obj.Shape.setAll(parametricCords(1),parametricCords(2));
            getIntCord=[obj.Shape.X, obj.Shape.Y, obj.Shape.j*obj.G2(number,3)];
+        end
+        
+        function setStoredRKPM(obj,Value)
+            obj.StoredRKPM=Value;
         end
         
     end

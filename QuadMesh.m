@@ -7,6 +7,7 @@ classdef QuadMesh < handle
         NEL; % Element Connectivity
         noElements; % No. for elements
         Elements; % Collection of Element Objects
+        
     end
     
     methods
@@ -110,6 +111,33 @@ classdef QuadMesh < handle
                     actualizedPoints=[actualizedPoints;tempPoint];
                 end
             end
+        end
+        
+        function RKPMatQuadrature(obj,Cloud)
+           % Function takes in Cloud handle to calculate RKPM shape
+           % function values at each Quadrature Point
+           totalPoints=obj.noElements*obj.orderInt^2;
+           quadCounter=1;
+           for i=1:obj.noElements
+               StoredRKPM=zeros(3,Cloud.numberOfNodes,obj.orderInt^2);
+               for j=1:obj.orderInt^2
+                   Cords=obj.Elements(i).getIntCord(j); x=Cords(1); y=Cords(2);
+                   display([num2str(quadCounter * 100 / totalPoints) , ' Percent Complete'])
+                   quadCounter=quadCounter+1;
+                   for a=1:Cloud.numberOfNodes
+                       CordsA=Cloud.Nodes(a).cordinates; 
+                       if ((CordsA(1)-x)^2+(CordsA(2)-y)^2)<Cloud.Nodes(a).a^2
+                           StoredRKPM(1,a,j)=Cloud.Nodes(a).sF.getValue([x;y]);
+                           DX=Cloud.Nodes(a).sF.getValueDx([x;y]);
+                           StoredRKPM(2,a,j)=DX(1);
+                           StoredRKPM(3,a,j)=DX(2);
+                       else
+                           %Pass
+                       end
+                   end
+                   obj.Elements(i).setStoredRKPM(StoredRKPM);           
+               end
+           end
         end
         
     end
