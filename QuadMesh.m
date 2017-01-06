@@ -25,7 +25,8 @@ classdef QuadMesh < handle
             % Loop through and define elements
             for i=1:obj.noElements
                 gNodes=obj.NEL(i,:); x=obj.NN(gNodes,2); y=obj.NN(gNodes,3);
-                obj.Elements(i)=Element(x,y,gNodes,obj.orderInt);
+                dof=reshape([obj.NN(obj.NEL(i,:),4),obj.NN(obj.NEL(i,:),5)]',[8,1]);
+                obj.Elements(i)=Element(x,y,gNodes,dof,obj.orderInt);
             end
         end
         

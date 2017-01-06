@@ -1,27 +1,26 @@
 %% Create Rectangular Mesh for Quadrature
 %Set up Mesh Geometry:
-[NN,NEL,X,Y] = GridRectangle(2,2,8,8);
-Mesh=QuadMesh(NN,NEL,3);
+[NN,NEL,X,Y] = GridRectangle(5,1,10,5);
+Mesh=QuadMesh(NN,NEL,2);
+
+% Set up Natural Boundary:
+b2=[5-eps,5+eps,-eps,1+eps,[0,-0.001]];
+BN=Boundary(NN,b2); BN(BN==-Inf)=0;
 
 %% Plot Mesh:
 MeshPlot.plotOriginal(Mesh.Elements)
 MeshPlot.plotQuadraturePoints(Mesh)
 
 %% Generate Point Cloud:
-[NNp] = GridRectangle(2,2,8,8);
+[NNp] = GridRectangle(5,1,10,2);
 %Set up Essential Boundary:
-b1=[-eps,eps,1-eps,1+eps,[0,0]];
+b1=[-eps,eps,0.5-eps,0.5+eps,[0,0]];
 b2=[-eps,eps,-eps,2+eps,[0,-Inf]];
-b3=[-eps,eps,2-eps,2+eps,[0,0]];
-BE=Boundary(NNp,b1,b2);
-
-% Set up Natural Boundary:
-b2=[2-eps,2+eps,-eps,1+eps,[0,-5000]];
-BN=Boundary(NNp,b2); BN(BN==-Inf)=0;
-
+b3=[-eps,eps,1-eps,1+eps,[0,0]];
+BE=Boundary(NNp,b2,b1);
 
 %% Define Point Cloud Object:
-a=sqrt(0.25^2+0.25^2)*1.01*1;
+a=sqrt(0.5^2+0.5^2)*1.01*1;
 %Points=Mesh.createPoints(20);
 order=1;
 xNodes=NNp(:,2);
@@ -31,12 +30,12 @@ PointCloud=Cloud(Nodes,order);
 PointCloud.plotCloud()
 
 %% Build Arrays:
-C=Constit(1,0.2,'Plane Strain').C;
+C=Constit(1,0,'Plane Strain').C;
 Mesh.RKPMatQuadrature(PointCloud); % Store Values of Shape Functions 
-Q=[-1;0];
-[K,F]=PointCloud.integrateDomain(C,Q,Mesh); % Build Arrays
-
-
+Q=[0;0];
+[K,Fb]=PointCloud.integrateDomain(C,Q,Mesh); % Build Arrays
+Fh=PointCloud.integrateBoundary(Mesh,BN); sum(Fh);
+F=Fb+Fh;
 %% Solve System:
 L=BE==-inf; % Indexes of unknown equations
 Kr=K(L,L); Br=BE(~L); fr=F(L); KRHS=K(L,~L); RHS=fr-KRHS*Br;
@@ -48,10 +47,10 @@ PointCloud.parseSolution(u);
 
 %% Plot The Solution:
 PointCloud.plotCloud();
-PointCloud.plotCloudU(0.5)
+PointCloud.plotCloudU(5)
 
 %% Test Points
-xs=0:0.1:2;
+xs=0:0.1:5;
 for q=1:length(xs)
     ui=PointCloud.returnInterpolatedU([xs(q);0]);
     plot(xs(q),ui(1),'k.');
@@ -59,4 +58,4 @@ for q=1:length(xs)
 end
 
 %%
-PointCloud.returnInterpolatedU([2;0])
+PointCloud.returnInterpolatedU([20;0])

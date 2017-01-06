@@ -28,19 +28,19 @@ classdef Cloud < handle
         end
         
         function A=distToAll(obj)
-           % Matrix with each element a data structure with distance vector between points i and j (sym).
-           A=zeros(obj.numberOfNodes,obj.numberOfNodes,3);
-           for i=1:obj.numberOfNodes
-              for j=1:obj.numberOfNodes
-                  if i~=j
+            % Matrix with each element a data structure with distance vector between points i and j (sym).
+            A=zeros(obj.numberOfNodes,obj.numberOfNodes,3);
+            for i=1:obj.numberOfNodes
+                for j=1:obj.numberOfNodes
+                    if i~=j
                         A(i,j,1)=obj.nodalData(i,2)-obj.nodalData(j,2);
                         A(i,j,2)=obj.nodalData(i,3)-obj.nodalData(j,3);
                         A(i,j,3)=sqrt(A(i,j,1)^2+A(i,j,2)^2);
                         A(i,j,1)=A(i,j,1)./ A(i,j,3);
                         A(i,j,2)=A(i,j,2)./ A(i,j,3);
-                   end
-              end
-           end
+                    end
+                end
+            end
         end
         
         function plotCloud(obj)
@@ -57,12 +57,12 @@ classdef Cloud < handle
             ufull=zeros(length(BE),1);
             counter=1;
             for i=1:length(BE)
-               if L(i)==1
-                   ufull(i)=ureduced(counter);
-                   counter=counter+1;
-               else
-                   ufull(i)=BE(i);
-               end
+                if L(i)==1
+                    ufull(i)=ureduced(counter);
+                    counter=counter+1;
+                else
+                    ufull(i)=BE(i);
+                end
             end
         end
         
@@ -76,15 +76,15 @@ classdef Cloud < handle
         end
         
         function plotCloudU(obj,scale)
-                for j=1:obj.numberOfNodes
-                    Cords=obj.Nodes(j).cordinates;
-                    deformation=0;
-                    for i=1:obj.numberOfNodes
-                        deformation=deformation+obj.Nodes(i).sF.getValue([Cords(1);Cords(2)])*obj.Nodes(i).u;
-                    end
-                    scatter(Cords(1)+scale*deformation(1),Cords(2)+scale*deformation(2),'bo')
-                    hold on
+            for j=1:obj.numberOfNodes
+                Cords=obj.Nodes(j).cordinates;
+                deformation=0;
+                for i=1:obj.numberOfNodes
+                    deformation=deformation+obj.Nodes(i).sF.getValue([Cords(1);Cords(2)])*obj.Nodes(i).u;
                 end
+                scatter(Cords(1)+scale*deformation(1),Cords(2)+scale*deformation(2),'bo')
+                hold on
+            end
         end
         
         function [K,F]=integrateDomain(obj,C,Q,Mesh)
@@ -113,21 +113,90 @@ classdef Cloud < handle
                                 end
                             end
                         end
-                        F(2*a-1)=F(2*a-1)+Mesh.Elements(k).StoredRKPM(1,a,l)*Jw*Q(1);
-                        F(2*a)=F(2*a)+Mesh.Elements(k).StoredRKPM(1,a,l)*Jw*Q(2);
+                        if sum(Q)>0
+                            F(2*a-1)=F(2*a-1)+Mesh.Elements(k).StoredRKPM(1,a,l)*Jw*Q(1);
+                            F(2*a)=F(2*a)+Mesh.Elements(k).StoredRKPM(1,a,l)*Jw*Q(2);
+                        end
                     end
                 end
             end
             K=triu(K)+tril(K',-1);
         end
         
+        function F=integrateBoundary(obj,Mesh,BN)
+            F=zeros(2*obj.numberOfNodes,1);
+            for j=1:Mesh.noElements
+                h=BN(Mesh.Elements(j).dof);              
+                if sum((sum(h~=0))) % Then we have tractions on te element
+                    nInt=Mesh.Elements(j).orderInt;
+                    G1=Mesh.Elements(j).G1;
+                    if (h(1)~=0 && h(3)~=0) || (h(2)~=0 && h(4)~=0)
+                        % Surface 1: eta=-1
+                        for i=1:nInt % perform Guass Integration [-1,1] over domain
+                            Mesh.Elements(j).Shape.setAll(G1(i,1),-1);
+                            Cords=[Mesh.Elements(j).Shape.X;Mesh.Elements(j).Shape.Y];
+                            js=sqrt((Mesh.Elements(j).Shape.Xxi)^2+(Mesh.Elements(j).Shape.Yxi)^2);
+                            hInt=[h(1);h(2)]*(1-(1+G1(i,1))/2)+(1+G1(i,1))/2*[h(3);h(4)];
+                            for w=1:obj.numberOfNodes
+                                if norm(Cords-obj.Nodes(w).cordinates)<obj.Nodes(w).a
+                                    F(2*w-1:2*w)=F(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*hInt*js*G1(i,2);
+                                end
+                            end
+                        end
+                    end
+                    if (h(3)~=0 && h(5)~=0) || (h(4)~=0 && h(6)~=0)
+                        % Surface 2: xi=1
+                        for i=1:nInt % perform Guass Integration [-1,1] over domain
+                            Mesh.Elements(j).Shape.setAll(1,G1(i,1));
+                            Cords=[Mesh.Elements(j).Shape.X;Mesh.Elements(j).Shape.Y];
+                            js=sqrt((Mesh.Elements(j).Shape.Xeta)^2+(Mesh.Elements(j).Shape.Yeta)^2);
+                            hInt=[h(3);h(4)]*(1-(1+G1(i,1))/2)+(1+G1(i,1))/2*[h(5);h(6)];
+                            for w=1:obj.numberOfNodes
+                                if norm(Cords-obj.Nodes(w).cordinates)<obj.Nodes(w).a
+                                    F(2*w-1:2*w)=F(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*hInt*js*G1(i,2);
+                                end
+                            end
+                        end
+                    end
+                    if (h(5)~=0 && h(7)~=0) || (h(6)~=0 && h(8)~=0)
+                        % Surface 3: eta=1
+                        for i=1:nInt % perform Guass Integration [-1,1] over domain
+                            Mesh.Elements(j).Shape.setAll(G1(i,1),1);
+                            Cords=[Mesh.Elements(j).Shape.X;Mesh.Elements(j).Shape.Y];
+                            js=sqrt((Mesh.Elements(j).Shape.Xxi)^2+(Mesh.Elements(j).Shape.Yxi)^2);
+                            hInt=[h(5);h(6)]*(1-(1+G1(i,1))/2)+(1+G1(i,1))/2*[h(7);h(8)];
+                            for w=1:obj.numberOfNodes
+                                if norm(Cords-obj.Nodes(w).cordinates)<obj.Nodes(w).a
+                                    F(2*w-1:2*w)=F(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*hInt*js*G1(i,2);
+                                end
+                            end
+                        end
+                    end
+                    if (h(1)~=0 && h(7)~=0) || (h(2)~=0 && h(8)~=0)
+                        % Surface 4: xi=-1
+                        for i=1:nInt % perform Guass Integration [-1,1] over domain
+                            Mesh.Elements(j).Shape.setAll(-1,G1(i,1));
+                            Cords=[Mesh.Elements(j).Shape.X;Mesh.Elements(j).Shape.Y];
+                            js=sqrt((Mesh.Elements(j).Shape.Xeta)^2+(Mesh.Elements(j).Shape.Yeta)^2);
+                            hInt=[h(7);h(8)]*(1-(1+G1(i,1))/2)+(1+G1(i,1))/2*[h(1);h(2)];
+                            for w=1:obj.numberOfNodes
+                                if norm(Cords-obj.Nodes(w).cordinates)<obj.Nodes(w).a
+                                    F(2*w-1:2*w)=F(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*hInt*js*G1(i,2);
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        
         function U=returnInterpolatedU(obj,x)
             U=zeros(2,1);
-           for i=1:obj.numberOfNodes
-               U=U+obj.Nodes(i).sF.getValue(x)*obj.Nodes(i).u;
-           end
+            for i=1:obj.numberOfNodes
+                U=U+obj.Nodes(i).sF.getValue(x)*obj.Nodes(i).u;
+            end
         end
     end
-    
 end
+
 

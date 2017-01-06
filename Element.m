@@ -7,6 +7,7 @@ classdef Element < handle
         x=[]; % List of x cordinates for element
         y=[]; % List of y cordinates for element
         orderInt; % Order of integration to develop components
+        dof; % DOF List
         G2=[]; % Guassian Integration Array in 2D
         G1=[]; % Guassian Integration Array in 1D
         Shape; % object containing shape functions
@@ -17,10 +18,11 @@ classdef Element < handle
     
     methods
         % Overloaded constructor with nodal inputs and integration order
-        function obj = Element(x,y,nodes,orderInt)
+        function obj = Element(x,y,nodes,dof,orderInt)
             obj.x=x;
             obj.y=y;
             obj.nodes=nodes;
+            obj.dof=dof;
             obj.orderInt=orderInt;
             obj.G2=Quadrature.twoDim(orderInt);
             obj.G1=Quadrature.oneDim(orderInt);
