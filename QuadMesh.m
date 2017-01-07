@@ -119,11 +119,12 @@ classdef QuadMesh < handle
            % function values at each Quadrature Point
            totalPoints=obj.noElements*obj.orderInt^2;
            quadCounter=1;
+           h=waitbar(quadCounter/ totalPoints,'Computing Shape Function Evaluations');
            for i=1:obj.noElements
                StoredRKPM=zeros(3,Cloud.numberOfNodes,obj.orderInt^2);
                for j=1:obj.orderInt^2
                    Cords=obj.Elements(i).getIntCord(j); x=Cords(1); y=Cords(2);
-                   display([num2str(quadCounter * 100 / totalPoints) , ' Percent Complete'])
+                   waitbar(quadCounter/ totalPoints,h,'Computing Shape Function Evaluations');
                    quadCounter=quadCounter+1;
                    for a=1:Cloud.numberOfNodes
                        CordsA=Cloud.Nodes(a).cordinates; 
@@ -139,6 +140,7 @@ classdef QuadMesh < handle
                    obj.Elements(i).setStoredRKPM(StoredRKPM);           
                end
            end
+           close(h);
         end
         
     end

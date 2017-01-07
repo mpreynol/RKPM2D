@@ -21,13 +21,13 @@ classdef Weight < handle
             end
         end
         
-        % Singular Function 
+        % Singular Function (Boxed Domain?)
         function f=f(obj,x)
            f=(((x(1)-obj.s(1))/obj.a)^2+((x(2)-obj.s(2))/obj.a)^2)^obj.p;
         end
         function df=df(obj,x)
-            df(1)=obj.p*obj.f(x)^(obj.p-1)*2*(x(1)-obj.s(1))/(obj.a^2);
-            df(2)=obj.p*obj.f(x)^(obj.p-1)*2*(x(2)-obj.s(2))/(obj.a^2);
+            df(1)=obj.p*(((x(1)-obj.s(1))/obj.a)^2+((x(2)-obj.s(2))/obj.a)^2)^(obj.p-1)*2*(x(1)-obj.s(1))/(obj.a^2);
+            df(2)=obj.p*(((x(1)-obj.s(1))/obj.a)^2+((x(2)-obj.s(2))/obj.a)^2)^(obj.p-1)*2*(x(2)-obj.s(2))/(obj.a^2);
         end
         
         function w = w(obj,x) % x,s is an array of length SD

@@ -91,8 +91,13 @@ classdef Cloud < handle
             n=obj.numberOfNodes;
             K=zeros(n*2);
             F=zeros(n*2,1);
+            totalPoints=Mesh.noElements*Mesh.orderInt^2;
+            quadCounter=1;
+            h=waitbar(quadCounter/ totalPoints,'Computing Domain Integration');
             for k=1:Mesh.noElements % Loop through Elements
                 for l=1:size(Mesh.Elements(k).G2,1) % Loop through Quadrature Points
+                    waitbar(quadCounter/ totalPoints,h,'Computing Domain Integration')
+                    quadCounter=quadCounter+1;
                     Cords=Mesh.Elements(k).getIntCord(l); Jw=Cords(3); % Jw = Jacobian * Quadrature Weight
                     for a=1:n % Loop over Shape Functions
                         for b=1:n % Loop over Shape Functions
@@ -121,12 +126,15 @@ classdef Cloud < handle
                 end
             end
             K=triu(K)+tril(K',-1);
+            close(h);
         end
         
         function F=integrateBoundary(obj,Mesh,BN)
             F=zeros(2*obj.numberOfNodes,1);
+            hw=waitbar(0/Mesh.noElements,'Computing Boundary Integration');
             for j=1:Mesh.noElements
-                h=BN(Mesh.Elements(j).dof);              
+                h=BN(Mesh.Elements(j).dof);  
+                waitbar(j/Mesh.noElements,hw,'Computing Boundary Integration')
                 if sum((sum(h~=0))) % Then we have tractions on te element
                     nInt=Mesh.Elements(j).orderInt;
                     G1=Mesh.Elements(j).G1;
@@ -188,6 +196,7 @@ classdef Cloud < handle
                     end
                 end
             end
+            close(hw);
         end
         
         function U=returnInterpolatedU(obj,x)
