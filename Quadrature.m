@@ -52,7 +52,7 @@ classdef Quadrature
         function G=twoDim(order)
             switch order
                 case 1
-                    G=[0,0,2];
+                    G=[0,0,4];
                 case 2
                     G=[-1/sqrt(3),-1/sqrt(3),1;
                         -1/sqrt(3),1/sqrt(3),1;

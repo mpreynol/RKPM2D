@@ -34,7 +34,7 @@ surf(X,Y,Z)
 
 %% Plot Shape Function
 figure(1)
-shape=1;
+shape=11;
 Z=zeros(size(X,1));
 for i=1:size(X,1) % Columns
     for j=1:size(Y,2) % Rows  
@@ -86,7 +86,7 @@ Z1=zeros(size(X,1));
 Z2=zeros(size(X,1));
 for i=1:size(X,1) % Columns
     for j=1:size(Y,2) % Rows  
-        if ~PointCloud.Nodes(shape).singularKernal
+        if 1
             z=PointCloud.Nodes(shape).sF.getValueDx([X(i,j),Y(i,j)]);
             Z1(i,j)=z(1); Z2(i,j)=z(2);
         else

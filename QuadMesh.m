@@ -76,11 +76,12 @@ classdef QuadMesh < handle
             meshLimits=[xmin,xmax,ymin,ymax];
         end
         
-        function actualizedPoints=createPoints(obj,numPoints)
+        function actualizedPoints=createPoints(obj,numPoints,insertedPoints)
             % Creates a Random grid of points starting at the the origin
             % and right and up from there.
+            % insertedPoints is a list of Points that are inserted
             meshLimits=obj.meshLimits;
-            actualizedPoints=[];
+            actualizedPoints=insertedPoints;
             Area=obj.meshArea();
             IdealPointDensity=sqrt(Area/(numPoints));
             while size(actualizedPoints,1)<numPoints
@@ -116,7 +117,7 @@ classdef QuadMesh < handle
         
         function RKPMatQuadrature(obj,Cloud)
            % Function takes in Cloud handle to calculate RKPM shape
-           % function values at each Quadrature Point
+           % function values at each Quadrature Point for later integration
            totalPoints=obj.noElements*obj.orderInt^2;
            quadCounter=1;
            h=waitbar(quadCounter/ totalPoints,'Computing Shape Function Evaluations');
@@ -128,7 +129,7 @@ classdef QuadMesh < handle
                    quadCounter=quadCounter+1;
                    for a=1:Cloud.numberOfNodes
                        CordsA=Cloud.Nodes(a).cordinates; 
-                       if ((CordsA(1)-x)^2+(CordsA(2)-y)^2)<Cloud.Nodes(a).a^2
+                       if (CordsA(1)-x)<=Cloud.Nodes(a).a && (CordsA(2)-y)<=Cloud.Nodes(a).a
                            StoredRKPM(1,a,j)=Cloud.Nodes(a).sF.getValue([x;y]);
                            DX=Cloud.Nodes(a).sF.getValueDx([x;y]);
                            StoredRKPM(2,a,j)=DX(1);

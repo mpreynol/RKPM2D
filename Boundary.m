@@ -15,7 +15,7 @@ function [B] = Boundary(NN,varargin)
 B=ones(size(NN,1)*2,1)*-inf; % Length of Boundary Vector is the no DOF
 for i=1:nargin-1
     infoArray=varargin{i};
-    for j=1:length(NN)
+    for j=1:size(NN,1)
         if (NN(j,2)>=infoArray(1) && NN(j,2)<=infoArray(2) && NN(j,3)>=infoArray(3) && NN(j,3)<=infoArray(4))
             B(NN(j,4))=infoArray(5); B(NN(j,5))=infoArray(6);
         end

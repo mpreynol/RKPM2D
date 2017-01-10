@@ -58,7 +58,7 @@ classdef RKShape < handle
         function setMoment(obj,x)
             Mi=zeros(obj.order*2+1);
             for i=1:(obj.Cloud.numberOfNodes) % Loop through other Nodes in the Mesh
-                if ((obj.Cloud.Nodes(i).cordinates(1)-x(1))^2+(obj.Cloud.Nodes(i).cordinates(2)-x(2))^2)<obj.a^2 % Only use Nodes from inside dilation of current evaluatioin point
+                if (obj.Cloud.Nodes(i).cordinates(1)-x(1))<=(obj.Cloud.Nodes(i).a+obj.a) && (obj.Cloud.Nodes(i).cordinates(2)-x(2))<=(obj.Cloud.Nodes(i).a+obj.a) % Only use Nodes from inside dilation of current evaluatioin point
                     Mi=Mi+obj.Cloud.Nodes(i).sF.H(x)*obj.Cloud.Nodes(i).sF.H(x)'*obj.Cloud.Nodes(i).weight.w(x);
                 end
             end
@@ -74,7 +74,7 @@ classdef RKShape < handle
         
         % Define Value
         function v=getValue(obj,x)
-            if ((x(1)-obj.cordinates(1))^2+(x(2)-obj.cordinates(2))^2)<obj.a^2
+            if (x(1)-obj.cordinates(1))<=obj.a && (x(2)-obj.cordinates(2))<=obj.a
                 if (prod(x==obj.cordinates) && obj.weight.singular)
                     v=1;
                 else
@@ -92,7 +92,7 @@ classdef RKShape < handle
             Midx=zeros(obj.order*2+1);
             Midy=zeros(obj.order*2+1);
             for i=1:(obj.Cloud.numberOfNodes)
-                if ((x(1)-obj.Cloud.Nodes(i).cordinates(1))^2+(x(2)-obj.Cloud.Nodes(i).cordinates(2))^2)<obj.a^2 % Only use Nodes from inside dilation of current evaluatioin point
+                if (obj.Cloud.Nodes(i).cordinates(1)-x(1))<=(obj.Cloud.Nodes(i).a+obj.a) && (obj.Cloud.Nodes(i).cordinates(2)-x(2))<=(obj.Cloud.Nodes(i).a+obj.a) % Only use Nodes from inside dilation of current evaluatioin point
                     % Define Preliminary Values:
                     W=obj.Cloud.Nodes(i).weight.w(x);
                     H=obj.Cloud.Nodes(i).sF.H(x);
@@ -114,7 +114,7 @@ classdef RKShape < handle
         % Define Derivative:
         function vDx=getValueDx(obj,x) % Returns [dx;dy]
             vDx=zeros(length(x),1);
-            if ((x(1)-obj.cordinates(1))^2+(x(2)-obj.cordinates(2))^2)<obj.a^2
+            if (x(1)-obj.cordinates(1))<=obj.a && (x(2)-obj.cordinates(2))<=obj.a
                 obj.setMoment(x);
                 obj.setMomentdx(x);
                 H0=obj.H(obj.cordinates);

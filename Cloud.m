@@ -7,15 +7,20 @@ classdef Cloud < handle
         Nodes=[]; % List of Object Nodes
         numberOfNodes; % Number of nodes in the cloud
         order; % Order of basis Functions
+        aArray; % Array of a values
+        aScale; % General Scale for the dilation parameter
         u; % Solutions *** Lack of Kronecker Means this isn't the PDE Solution Yet
     end
     
     methods
-        function obj=Cloud(nodalData,order)
+        function obj=Cloud(nodalData,order,aScale)
             %Constructor
             obj.nodalData=nodalData;
             obj.numberOfNodes=size(nodalData,1);
             obj.order=order;
+            obj.aScale=aScale;
+            obj.aArray=obj.findDilation();
+            obj.aArray=obj.aArray*aScale;
             obj.setNodeObjects();
             
         end
@@ -23,7 +28,7 @@ classdef Cloud < handle
         function setNodeObjects(obj)
             obj.Nodes=RKNode.empty(obj.numberOfNodes,0);
             for i=1:obj.numberOfNodes
-                obj.Nodes(i)=RKNode(obj.nodalData(i,1),[obj.nodalData(i,2);obj.nodalData(i,3)],obj.nodalData(i,4),obj.order,[obj.nodalData(i,5);obj.nodalData(i,6)],obj);
+                obj.Nodes(i)=RKNode(obj.nodalData(i,1),[obj.nodalData(i,2);obj.nodalData(i,3)],obj.aArray(i),obj.order,[obj.nodalData(i,4);obj.nodalData(i,5)],obj);
             end
         end
         
@@ -36,10 +41,26 @@ classdef Cloud < handle
                         A(i,j,1)=obj.nodalData(i,2)-obj.nodalData(j,2);
                         A(i,j,2)=obj.nodalData(i,3)-obj.nodalData(j,3);
                         A(i,j,3)=sqrt(A(i,j,1)^2+A(i,j,2)^2);
-                        A(i,j,1)=A(i,j,1)./ A(i,j,3);
-                        A(i,j,2)=A(i,j,2)./ A(i,j,3);
                     end
                 end
+            end
+        end
+        
+        function aArray=findDilation(obj)
+            % Method returns an optimal 'a' value for the mesh: smalles
+            % nonCoplaner Point
+            A=obj.distToAll();
+            aArray=ones(obj.numberOfNodes,1)*inf;
+            for i=1:obj.numberOfNodes
+               for j=1:obj.numberOfNodes
+                   if i~=j
+                      if A(i,j,1)~=0 && A(i,j,2)~=0 % Point is not CoPlanar
+                         if A(i,j,3)<aArray(i)
+                             aArray(i)=A(i,j,3);
+                         end
+                      end
+                   end
+               end
             end
         end
         
@@ -75,13 +96,17 @@ classdef Cloud < handle
             end
         end
         
-        function plotCloudU(obj,scale)
+        function d=plotCloudU(obj,scale)
+            d=zeros(2,obj.numberOfNodes);
             for j=1:obj.numberOfNodes
                 Cords=obj.Nodes(j).cordinates;
-                deformation=0;
+                deformation=zeros(2,1);
                 for i=1:obj.numberOfNodes
+                    if Cords(1)-obj.Nodes(i).cordinates(1)<=obj.Nodes(i).a && Cords(2)-obj.Nodes(i).cordinates(2)<=obj.Nodes(i).a
                     deformation=deformation+obj.Nodes(i).sF.getValue([Cords(1);Cords(2)])*obj.Nodes(i).u;
+                    end
                 end
+                d(:,j)=deformation;
                 scatter(Cords(1)+scale*deformation(1),Cords(2)+scale*deformation(2),'bo')
                 hold on
             end
@@ -99,11 +124,11 @@ classdef Cloud < handle
                     waitbar(quadCounter/ totalPoints,h,'Computing Domain Integration')
                     quadCounter=quadCounter+1;
                     Cords=Mesh.Elements(k).getIntCord(l); Jw=Cords(3); % Jw = Jacobian * Quadrature Weight
-                    for a=1:n % Loop over Shape Functions
+                    for a=1:n % Loop over Shape Functions+
                         for b=1:n % Loop over Shape Functions
                             if b>=a
                                 CordsA=obj.Nodes(a).cordinates; CordsB=obj.Nodes(b).cordinates;
-                                if ((CordsA(1)-CordsB(1))^2+(CordsA(2)-CordsB(2))^2)<obj.Nodes(a).a^2
+                                if (CordsA(1)-CordsB(1))<=(obj.Nodes(a).a+obj.Nodes(b).a) && (CordsA(2)-CordsB(2))<=(obj.Nodes(a).a+obj.Nodes(b).a)
                                     NDa=Mesh.Elements(k).StoredRKPM(2:3,a,l);
                                     NDb=Mesh.Elements(k).StoredRKPM(2:3,b,l);
                                     Ba=[NDa(1),0;0,NDa(2);NDa(2),NDa(1)];
@@ -118,7 +143,7 @@ classdef Cloud < handle
                                 end
                             end
                         end
-                        if sum(Q)>0
+                        if sum(Q~=0)>0
                             F(2*a-1)=F(2*a-1)+Mesh.Elements(k).StoredRKPM(1,a,l)*Jw*Q(1);
                             F(2*a)=F(2*a)+Mesh.Elements(k).StoredRKPM(1,a,l)*Jw*Q(2);
                         end
@@ -146,7 +171,7 @@ classdef Cloud < handle
                             js=sqrt((Mesh.Elements(j).Shape.Xxi)^2+(Mesh.Elements(j).Shape.Yxi)^2);
                             hInt=[h(1);h(2)]*(1-(1+G1(i,1))/2)+(1+G1(i,1))/2*[h(3);h(4)];
                             for w=1:obj.numberOfNodes
-                                if norm(Cords-obj.Nodes(w).cordinates)<obj.Nodes(w).a
+                                if norm(Cords-obj.Nodes(w).cordinates)<=obj.Nodes(w).a
                                     F(2*w-1:2*w)=F(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*hInt*js*G1(i,2);
                                 end
                             end
@@ -160,7 +185,7 @@ classdef Cloud < handle
                             js=sqrt((Mesh.Elements(j).Shape.Xeta)^2+(Mesh.Elements(j).Shape.Yeta)^2);
                             hInt=[h(3);h(4)]*(1-(1+G1(i,1))/2)+(1+G1(i,1))/2*[h(5);h(6)];
                             for w=1:obj.numberOfNodes
-                                if norm(Cords-obj.Nodes(w).cordinates)<obj.Nodes(w).a
+                                if norm(Cords-obj.Nodes(w).cordinates)<=obj.Nodes(w).a
                                     F(2*w-1:2*w)=F(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*hInt*js*G1(i,2);
                                 end
                             end
@@ -174,7 +199,7 @@ classdef Cloud < handle
                             js=sqrt((Mesh.Elements(j).Shape.Xxi)^2+(Mesh.Elements(j).Shape.Yxi)^2);
                             hInt=[h(5);h(6)]*(1-(1+G1(i,1))/2)+(1+G1(i,1))/2*[h(7);h(8)];
                             for w=1:obj.numberOfNodes
-                                if norm(Cords-obj.Nodes(w).cordinates)<obj.Nodes(w).a
+                                if norm(Cords-obj.Nodes(w).cordinates)<=obj.Nodes(w).a
                                     F(2*w-1:2*w)=F(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*hInt*js*G1(i,2);
                                 end
                             end
@@ -188,7 +213,7 @@ classdef Cloud < handle
                             js=sqrt((Mesh.Elements(j).Shape.Xeta)^2+(Mesh.Elements(j).Shape.Yeta)^2);
                             hInt=[h(7);h(8)]*(1-(1+G1(i,1))/2)+(1+G1(i,1))/2*[h(1);h(2)];
                             for w=1:obj.numberOfNodes
-                                if norm(Cords-obj.Nodes(w).cordinates)<obj.Nodes(w).a
+                                if norm(Cords-obj.Nodes(w).cordinates)<=obj.Nodes(w).a
                                     F(2*w-1:2*w)=F(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*hInt*js*G1(i,2);
                                 end
                             end
@@ -205,6 +230,71 @@ classdef Cloud < handle
                 U=U+obj.Nodes(i).sF.getValue(x)*obj.Nodes(i).u;
             end
         end
+        
+        function test=checkPU(obj,Mesh)
+            % Test for Partial Unity:
+            test=0;
+            hw=waitbar(0/Mesh.noElements,'Checking Partial Unity at Int Points');
+            for j=1:Mesh.noElements
+                waitbar(j/Mesh.noElements,hw,'Checking Partial Unity at Int Points');
+                for g=1:Mesh.orderInt
+                    xTest=Mesh.Elements(j).getIntCord(g);
+                    pu=0;
+                    for i=1:obj.numberOfNodes
+                        pu=pu+obj.Nodes(i).sF.getValue([xTest(1);xTest(2)]);
+                    end
+                    if abs(pu-1)>test
+                        test=abs(pu-1);
+                    end
+                end
+                
+            end
+            close(hw)
+        end
+        
+        function test=checkNU(obj,Mesh)
+            % Test for Partial Nullity:
+            test=zeros(2,1);
+            hw=waitbar(0/Mesh.noElements,'Checking Partial Nullity at Int Points');
+            for j=1:Mesh.noElements
+                waitbar(j/Mesh.noElements,hw,'Checking Partial Nullity at Int Points');
+                for g=1:Mesh.orderInt
+                    xTest=Mesh.Elements(j).getIntCord(g);
+                    nu=zeros(2,1);
+                    for i=1:obj.numberOfNodes
+                        nu=nu+obj.Nodes(i).sF.getValueDx([xTest(1);xTest(2)]);
+                    end
+                    if abs(nu)>test
+                        test=abs(nu);
+                    end
+                end
+                
+            end
+            close(hw)
+        end
+        
+        function test=checkLinearConsistency(obj,Mesh)
+            % Test for Linear Consistency of shape functions
+            test=0;
+            hw=waitbar(0/Mesh.noElements,'Checking Linear Consistency at Int Points');
+            for j=1:Mesh.noElements
+                waitbar(j/Mesh.noElements,hw,'Checking Linear Consistency at Int Points');
+                for g=1:Mesh.orderInt
+                    xTest=Mesh.Elements(j).getIntCord(g); xTest=[xTest(1);xTest(2)]; % Point to Test Consistency
+                    ExactResult=xTest(1)+xTest(2);
+                    approximateSolution=0;
+                    for a=1:obj.numberOfNodes
+                        if xTest(1)-obj.Nodes(a).cordinates(1)<=obj.Nodes(a).a && xTest(2)-obj.Nodes(a).cordinates(2)<=obj.Nodes(a).a
+                            approximateSolution=approximateSolution+sum(obj.Nodes(a).sF.getValue(xTest)*obj.Nodes(a).cordinates);
+                        end
+                    end
+                    if abs(approximateSolution-ExactResult)>test
+                        test=abs(approximateSolution-ExactResult);
+                    end
+                end
+            end
+            close(hw)
+        end  
     end
 end
 
