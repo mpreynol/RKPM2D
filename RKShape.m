@@ -59,7 +59,8 @@ classdef RKShape < handle
             Mi=zeros(obj.order*2+1);
             for i=1:(obj.Cloud.numberOfNodes) % Loop through other Nodes in the Mesh
                 if (obj.Cloud.Nodes(i).cordinates(1)-x(1))<=(obj.Cloud.Nodes(i).a+obj.a) && (obj.Cloud.Nodes(i).cordinates(2)-x(2))<=(obj.Cloud.Nodes(i).a+obj.a) % Only use Nodes from inside dilation of current evaluatioin point
-                    Mi=Mi+obj.Cloud.Nodes(i).sF.H(x)*obj.Cloud.Nodes(i).sF.H(x)'*obj.Cloud.Nodes(i).weight.w(x);
+                    H=obj.Cloud.Nodes(i).sF.H(x);
+                    Mi=Mi+H*H'*obj.Cloud.Nodes(i).weight.w(x);
                 end
             end
             obj.M=Mi;
@@ -90,7 +91,7 @@ classdef RKShape < handle
         % Processing for Derivative 
         function setMomentdx(obj,x)
             Midx=zeros(obj.order*2+1);
-            Midy=zeros(obj.order*2+1);
+            Midy=Midx;
             for i=1:(obj.Cloud.numberOfNodes)
                 if (obj.Cloud.Nodes(i).cordinates(1)-x(1))<=(obj.Cloud.Nodes(i).a+obj.a) && (obj.Cloud.Nodes(i).cordinates(2)-x(2))<=(obj.Cloud.Nodes(i).a+obj.a) % Only use Nodes from inside dilation of current evaluatioin point
                     % Define Preliminary Values:

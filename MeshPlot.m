@@ -16,6 +16,17 @@ classdef MeshPlot<handle
                 hold on
             end
         end
+        function plotOriginalDomains(Domains)
+            for ii=1:Domains.noDomains
+                for i=1:Domains.domainCollection(ii).noElements
+                    x=Domains.domainCollection(ii).Elements(i).x; x=[x;x(1)];
+                    y=Domains.domainCollection(ii).Elements(i).y; y=[y;y(1)];
+                    lh.Color=[0,0,0,0.5];
+                    plot(x,y,'-',lh)
+                    hold on
+                end
+            end
+        end
         function plotDeformed(Mesh,scale)
              for i=1:size(Mesh,2)
                 x=Mesh(i).x; x=[x;x(1)];
@@ -34,6 +45,17 @@ classdef MeshPlot<handle
                     Cords=Mesh.Elements(i).getIntCord(j);
                     plot(Cords(1),Cords(2),'b.')
                     hold on
+                end
+            end
+        end
+        function plotQuadraturePointsDomains(Domains)
+            for ii=1:Domains.noDomains
+                for i=1:Domains.domainCollection(ii).noElements
+                    for j=1:size(Domains.domainCollection(ii).Elements(i).G2,1)
+                        Cords=Domains.domainCollection(ii).Elements(i).getIntCord(j);
+                        plot(Cords(1),Cords(2),'b.')
+                        hold on
+                    end
                 end
             end
         end

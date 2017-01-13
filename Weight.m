@@ -26,7 +26,8 @@ classdef Weight < handle
             df(2)=obj.p*(((x(1)-obj.s(1))/obj.a)^2+((x(2)-obj.s(2))/obj.a)^2)^(obj.p-1)*2*(x(2)-obj.s(2))/(obj.a^2);
         end        
         function w = w(obj,x) % x,s is an array of length SD
-            w=prod(obj.weights(x));
+            w=obj.weights(x);
+            w=w(1)*w(2);
             if obj.singular
                     F=obj.f(x);
                     w=w/F;
@@ -47,8 +48,8 @@ classdef Weight < handle
         end       
         % Weight Function
         function weights = weights(obj,x)   
-            z=zeros(length(x),1);
-            weights=zeros(length(x),1);
+            z=[0;0];
+            weights=[0;0];
             for i=1:length(x);
                 z(i)=abs(x(i)-obj.s(i))/obj.a;   
                 if z(i)>=1
@@ -62,9 +63,9 @@ classdef Weight < handle
         end        
         % Weight Function Derivative
         function wx=derivative(obj,x)
-            z=zeros(length(x),1);
-            dz=zeros(length(x),1);
-            wx=zeros(length(x),1);  
+            z=[0;0];
+            dz=[0;0];
+            wx=[0;0];  
             for i=1:length(x)  
                 z(i)=abs(x(i)-obj.s(i))/obj.a;   
                 dz(i)=(x(i)-obj.s(i))/abs(x(i)-obj.s(i))/obj.a;

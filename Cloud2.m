@@ -1,6 +1,7 @@
-classdef Cloud < handle
+classdef Cloud2 < handle
     %CLOUD is a list of node objects for an RKPM solution space
     % Currently using 2D
+    % Cloud 2 is for the domain decomposed quadrature mesh
     
     properties
         nodalData=[]; % Array of nodal Cordinates
@@ -13,7 +14,7 @@ classdef Cloud < handle
     end
     
     methods
-        function obj=Cloud(nodalData,order,aScale)
+        function obj=Cloud2(nodalData,order,aScale)
             %Constructor
             obj.nodalData=nodalData;
             obj.numberOfNodes=size(nodalData,1);
@@ -103,7 +104,7 @@ classdef Cloud < handle
                 deformation=zeros(2,1);
                 for i=1:obj.numberOfNodes
                     if Cords(1)-obj.Nodes(i).cordinates(1)<=obj.Nodes(i).a && Cords(2)-obj.Nodes(i).cordinates(2)<=obj.Nodes(i).a
-                        deformation=deformation+obj.Nodes(i).sF.getValue([Cords(1);Cords(2)])*obj.Nodes(i).u;
+                    deformation=deformation+obj.Nodes(i).sF.getValue([Cords(1);Cords(2)])*obj.Nodes(i).u;
                     end
                 end
                 d(:,j)=deformation;
@@ -112,57 +113,56 @@ classdef Cloud < handle
             end
         end
         
-        function [K,F]=integrateDomain(obj,C,Q,Mesh,RKv,RKdx,RKdy)
+        function [K,F]=integrateDomain(obj,C,Q,Mesh)
             n=obj.numberOfNodes;
-            K=zeros(n*2,n*2);
-            F=zeros(n*2,1);
-            totalPoints=Mesh.noElements*Mesh.orderInt^2;
-            quadCounter=1;
-            h=waitbar(quadCounter/ totalPoints,'Computing Domain Integration');
-            for k=1:Mesh.noElements % Loop through Elements
-                for l=1:size(Mesh.Elements(k).G2,1) % Loop through Quadrature Points
-                    waitbar(quadCounter/ totalPoints,h,'Computing Domain Integration')
-                    quadCounter=quadCounter+1;
-                    Cords=Mesh.Elements(k).getIntCord(l); Jw=Cords(3); % Jw = Jacobian * Quadrature Weight
-                    for a=1:n % Loop over Shape Functions+
-                        for b=1:n % Loop over Shape Functions
-                            if b>=a
-                                if RKv(a,k,l,1)~=0 && RKv(b,k,l,1)~=0
-                                    %RKv(a,k,l,1)>0 && RKv(b,k,l,1)>0
-                                    %Mesh.Elements(k).StoredRKPM(1,a,l)*Mesh.Elements(k).StoredRKPM(1,b,l)
-                                    %NDa=Mesh.Elements(k).StoredRKPM(2:3,a,l);
-                                    %NDb=Mesh.Elements(k).StoredRKPM(2:3,b,l);
-                                    NDa=[RKdx(a,k,l,1);RKdy(a,k,l,1)];
-                                    NDb=[RKdx(b,k,l,1);RKdy(b,k,l,1)];
-                                    Ba=[NDa(1),0;0,NDa(2);NDa(2),NDa(1)];
-                                    Bb=[NDb(1),0;0,NDb(2);NDb(2),NDb(1)];
-                                    Kab=Ba'*C*Bb*Jw;
-                                    K(2*a-1,2*b-1)=K(2*a-1,2*b-1)+Kab(1,1);
-                                    K(2*a-1,2*b)=K(2*a-1,2*b)+Kab(1,2);
-                                    K(2*a,2*b-1)=K(2*a,2*b-1)+Kab(2,1);
-                                    K(2*a,2*b)=K(2*a,2*b)+Kab(2,2);
-                                else
-                                    %Pass
+            K=zeros(n*2,n*2,Mesh.noDomains);
+            F=zeros(n*2,1,Mesh.noDomains);
+            parfor k=1:Mesh.noDomains % Loop through Domains
+                Ktemp=zeros(n*2);
+                Ftemp=zeros(n*2,1);
+                for kk=1:Mesh.domainCollection(k).noElements % Loop through elements in Domain
+                    for l=1:size(Mesh.domainCollection(k).Elements(kk).G2,1) % Loop through Quadrature Points
+                        Cords=Mesh.domainCollection(k).Elements(kk).getIntCord(l); Jw=Cords(3); % Jw = Jacobian * Quadrature Weight
+                        for a=1:n % Loop over Shape Functions+
+                            for b=1:n % Loop over Shape Functions
+                                if b>=a
+                                    if Mesh.domainCollection(k).Elements(kk).StoredRKPM(1,a,l)*Mesh.domainCollection(k).Elements(kk).StoredRKPM(1,b,l)
+                                        NDa=Mesh.domainCollection(k).Elements(kk).StoredRKPM(2:3,a,l);
+                                        NDb=Mesh.domainCollection(k).Elements(kk).StoredRKPM(2:3,b,l);
+                                        Ba=[NDa(1),0;0,NDa(2);NDa(2),NDa(1)];
+                                        Bb=[NDb(1),0;0,NDb(2);NDb(2),NDb(1)];
+                                        Kab=Ba'*C*Bb*Jw;
+                                        Ktemp(2*a-1,2*b-1)=Ktemp(2*a-1,2*b-1)+Kab(1,1);
+                                        Ktemp(2*a-1,2*b)=Ktemp(2*a-1,2*b)+Kab(1,2);
+                                        Ktemp(2*a,2*b-1)=Ktemp(2*a,2*b-1)+Kab(2,1);
+                                        Ktemp(2*a,2*b)=Ktemp(2*a,2*b)+Kab(2,2);
+                                    else
+                                        %Pass
+                                    end
                                 end
                             end
-                        end
-                        if sum(Q~=0)>0
-                            %value=Mesh.Elements(k).StoredRKPM(1,a,l);
-                            value=RKv(a,k,l,1);
-                            F(2*a-1,1)=F(2*a-1,1)+value*Jw*Q(1);
-                            F(2*a,1)=F(2*a,1)+value*Jw*Q(2);
+                            if sum(Q~=0)>0
+                                Ftemp(2*a-1,1)=Ftemp(2*a-1,1)+Mesh.domainCollection(k).Elements(kk).StoredRKPM(1,a,l)*Jw*Q(1);
+                                Ftemp(2*a,1)=Ftemp(2*a,1)+Mesh.domainCollection(k).Elements(kk).StoredRKPM(1,a,l)*Jw*Q(2);
+                            end
                         end
                     end
+                    
                 end
+                K(:,:,k)=Ktemp;
+                F(:,1,k)=Ftemp;
             end
+            K=sum(K,3);
+            F=sum(F,3);
             K=triu(K)+tril(K',-1);
-            close(h)
         end
         
         function F=integrateBoundary(obj,Mesh,BN)
             F=zeros(2*obj.numberOfNodes,1);
+            hw=waitbar(0/Mesh.noElements,'Computing Boundary Integration');
             for j=1:Mesh.noElements
                 h=BN(Mesh.Elements(j).dof);  
+                waitbar(j/Mesh.noElements,hw,'Computing Boundary Integration')
                 if sum((sum(h~=0))) % Then we have tractions on the element
                     nInt=Mesh.Elements(j).orderInt;
                     G1=Mesh.Elements(j).G1;

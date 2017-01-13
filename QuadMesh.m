@@ -115,33 +115,39 @@ classdef QuadMesh < handle
             end
         end
         
-        function RKPMatQuadrature(obj,Cloud)
+        function [RKv,RKdx,RKdy]=RKPMatQuadrature(obj,Cloud)
            % Function takes in Cloud handle to calculate RKPM shape
            % function values at each Quadrature Point for later integration
-           totalPoints=obj.noElements*obj.orderInt^2;
-           quadCounter=1;
-           h=waitbar(quadCounter/ totalPoints,'Computing Shape Function Evaluations');
-           for i=1:obj.noElements
-               StoredRKPM=zeros(3,Cloud.numberOfNodes,obj.orderInt^2);
-               for j=1:obj.orderInt^2
-                   Cords=obj.Elements(i).getIntCord(j); x=Cords(1); y=Cords(2);
-                   waitbar(quadCounter/ totalPoints,h,'Computing Shape Function Evaluations');
-                   quadCounter=quadCounter+1;
-                   for a=1:Cloud.numberOfNodes
+           size1=Cloud.numberOfNodes;
+           size2=obj.orderInt^2;
+           RKv=zeros(size1,obj.noElements,size2,1);
+           RKdx=zeros(size1,obj.noElements,size2,1);
+           RKdy=zeros(size1,obj.noElements,size2,1);
+           Elements=obj.Elements; % Create Module Copy of Element Data Structure
+           parfor i=1:obj.noElements
+               myElement=Elements(i); % Create Loop Copy of Array
+               StoredRKPM=zeros(3,size1,size2);
+               for j=1:size2
+                   Cords=Elements(i).getIntCord(j); x=Cords(1); y=Cords(2);
+                   for a=1:size1
                        CordsA=Cloud.Nodes(a).cordinates; 
                        if (CordsA(1)-x)<=Cloud.Nodes(a).a && (CordsA(2)-y)<=Cloud.Nodes(a).a
                            StoredRKPM(1,a,j)=Cloud.Nodes(a).sF.getValue([x;y]);
                            DX=Cloud.Nodes(a).sF.getValueDx([x;y]);
                            StoredRKPM(2,a,j)=DX(1);
                            StoredRKPM(3,a,j)=DX(2);
+                           RKv(a,i,j,1)=StoredRKPM(1,a,j);
+                           RKdx(a,i,j,1)=DX(1);
+                           RKdy(a,i,j,1)=DX(2);
                        else
                            %Pass
                        end
                    end
-                   obj.Elements(i).setStoredRKPM(StoredRKPM);           
+                   myElement.setStoredRKPM(StoredRKPM);           
+                   Elements(i)=myElement; % Assign Local Handle to Module
                end
            end
-           close(h);
+           obj.Elements=Elements; % Assign Module to Global
         end
         
     end
