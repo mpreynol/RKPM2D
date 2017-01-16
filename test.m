@@ -1,8 +1,10 @@
 %% Create Rectangular Mesh for Quadrature
 %Set up Mesh Geometry:
-[NN,NEL,X,Y] = GridRectangle(20,1,100,4);
-Mesh=QuadMesh(NN,NEL,5);
-%SplitMesh=Domains(NN,NEL,2,8);
+[NN,NEL,X,Y] = GridRectangle(20,1,40,4);
+orderInt=3;
+threads=4;
+%Mesh=QuadMesh(NN,NEL,orderInt);
+SplitMesh=Domains(NN,NEL,orderInt,threads);
 
 % Set up Natural Boundary:
 b2=[20-eps,20+eps,-eps,1+eps,[0,1]];
@@ -13,7 +15,7 @@ BN=Boundary(NN,b2); BN(BN==-Inf)=0;
 %MeshPlot.plotQuadraturePointsDomains(SplitMesh);
 
 %% Generate Uniform Point Cloud:
-[NNp] = GridRectangle(20,1,100,4);
+[NNp] = GridRectangle(20,1,40,4);
 %Set up Essential Boundary:
 b1=[-eps,eps,0.5-eps,0.5+eps,[0,0]];
 b2=[-eps,eps,0-eps,0+eps,[0,-Inf]];
@@ -22,8 +24,8 @@ BE=Boundary(NNp,b1,b2,b3);
 xNodes=NNp(:,2);
 yNodes=NNp(:,3);
 Nodes=[(1:length(xNodes))',xNodes,yNodes,reshape(BE,2,[])'];
-PointCloud=Cloud(Nodes,1,1);
-%PointCloud2=Cloud2(Nodes,1,1);
+%PointCloud=Cloud(Nodes,1,1);
+PointCloud2=Cloud2(Nodes,1,1);
 %PointCloud.plotCloud()
 
 % %% Define Random Point Cloud Object:
@@ -45,26 +47,26 @@ PointCloud=Cloud(Nodes,1,1);
 %PointCloud.checkPU(Mesh)
 %PointCloud.checkNU(Mesh)
 %PointCloud.checkLinearConsistency(Mesh)
-%% Test
-Mesh.WeightatQuadrature(PointCloud);
-
-%% Build Arrays:
+%% Precalculate
+SplitMesh.weightatQuad(PointCloud2);
+SplitMesh.RKPMatQuad(PointCloud2); % Store Values of Shape Functions W/ decomposition
+%Mesh.WeightatQuadrature(PointCloud);
+%[RKv,RKdx,DRKdy]=Mesh.RKPMatQuadrature(PointCloud); 
 C=Constit(1E6,0.3,'Plane Stress').C;
-%[RKv,RKdx,DRKdy]=SplitMesh.RKPMatQuad(PointCloud); % Store Values of Shape Functions W/
-%DECOMP
-[RKv,RKdx,DRKdy]=Mesh.RKPMatQuadrature(PointCloud); % 
+%% Integration
 Q=[0;0];
-%[K,Fb]=PointCloud2.integrateDomain(C,Q,SplitMesh,RKv,RKdx,DRKdy); % Build Arrays
-[K,Fb]=PointCloud.integrateDomain(C,Q,Mesh,RKv,RKdx,DRKdy); % Build Arrays
-Fh=PointCloud.integrateExactBoundary(Mesh,BN,@parabolicStress); sum(Fh);
+[K,Fb]=PointCloud2.integrateDomain(C,Q,SplitMesh); % Build Arrays
+%[K,Fb]=PointCloud.integrateDomain(C,Q,Mesh,RKv,RKdx,DRKdy); % Build Arrays
+%Fh=PointCloud.integrateExactBoundary(Mesh,BN,@parabolicStress); sum(Fh);
+Fh=PointCloud2.integrateExactBoundary(SplitMesh,BN,@parabolicStress); sum(Fh);
 F=Fb+Fh;
 %% Solve System:
 L=BE==-inf; % Indexes of unknown equations
 Kr=K(L,L); Br=BE(~L); fr=F(L); KRHS=K(L,~L); RHS=fr-KRHS*Br;
 ur=Kr\RHS;
-u=PointCloud.reAssembleUnknowns(ur,BE);
+u=PointCloud2.reAssembleUnknowns(ur,BE);
 % Populate solution back into PointCloud Collection:
-PointCloud.parseSolution(u);
+PointCloud2.parseSolution(u);
 
 %% Plot The Solution:
 %PointCloud.plotCloud();
@@ -80,4 +82,4 @@ PointCloud.parseSolution(u);
 % 
 
 %%
-PointCloud.returnInterpolatedU([20;0])
+PointCloud2.returnInterpolatedU([20;0])

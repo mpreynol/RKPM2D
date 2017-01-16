@@ -4,6 +4,7 @@ classdef Element < handle
     
     properties
         nodes=[];
+        elmNumber; % Element Number (Used for decomposition tracking)
         x=[]; % List of x cordinates for element
         y=[]; % List of y cordinates for element
         orderInt; % Order of integration to develop components
@@ -19,9 +20,10 @@ classdef Element < handle
     
     methods
         % Overloaded constructor with nodal inputs and integration order
-        function obj = Element(x,y,nodes,dof,orderInt)
+        function obj = Element(x,y,elmNumber,nodes,dof,orderInt)
             obj.x=x;
             obj.y=y;
+            obj.elmNumber=elmNumber;
             obj.nodes=nodes;
             obj.dof=dof;
             obj.orderInt=orderInt;

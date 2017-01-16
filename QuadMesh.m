@@ -7,7 +7,9 @@ classdef QuadMesh < handle
         NEL; % Element Connectivity
         noElements; % No. for elements
         Elements; % Collection of Element Objects
-        
+        RKv; % Stored values of RK Shape Functions
+        RKdx; % Stored Values of RKdx Functions
+        RKdy; % Stored Values of RKdy Functions
     end
     
     methods
@@ -24,9 +26,10 @@ classdef QuadMesh < handle
         function setElements(obj)
             % Loop through and define elements
             for i=1:obj.noElements
-                gNodes=obj.NEL(i,:); x=obj.NN(gNodes,2); y=obj.NN(gNodes,3);
-                dof=reshape([obj.NN(obj.NEL(i,:),4),obj.NN(obj.NEL(i,:),5)]',[8,1]);
-                obj.Elements(i)=Element(x,y,gNodes,dof,obj.orderInt);
+                gNodes=obj.NEL(i,2:5); x=obj.NN(gNodes,2); y=obj.NN(gNodes,3);
+                elmNumber=obj.NEL(i,1);
+                dof=reshape([obj.NN(obj.NEL(i,2:5),4),obj.NN(obj.NEL(i,2:5),5)]',[8,1]);
+                obj.Elements(i)=Element(x,y,elmNumber,gNodes,dof,obj.orderInt);
             end
         end
         
@@ -177,6 +180,10 @@ classdef QuadMesh < handle
                end
            end
            obj.Elements=Elements; % Assign Module to Global
+           % Assign Arrays to Instance of Mesh:
+           obj.RKv=RKv;
+           obj.RKdx=RKdx;
+           obj.RKdy=RKdy;
         end
         
     end

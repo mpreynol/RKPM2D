@@ -113,22 +113,29 @@ classdef Cloud2 < handle
             end
         end
         
-        function [K,F]=integrateDomain(obj,C,Q,Mesh,RKv,RKdx,RKdy)
+        function [K,F]=integrateDomain(obj,C,Q,Mesh)
+            % Integrates RK Point Cloud using Decomposed Quadrature Mesh
             n=obj.numberOfNodes;
             K=zeros(n*2,n*2,Mesh.noDomains);
             F=zeros(n*2,1,Mesh.noDomains);
-            parfor k=1:Mesh.noDomains % Loop through Domains
+            for k=1:Mesh.noDomains % Loop through Domains
+                % Access the assembled data arrays for each subDomain
+                RKv=Mesh.domainCollection(k).RKv;
+                RKdx=Mesh.domainCollection(k).RKdx;
+                RKdy=Mesh.domainCollection(k).RKdy;
+                % Build an extra matrix for each thread
                 Ktemp=zeros(n*2);
                 Ftemp=zeros(n*2,1);
                 for kk=1:Mesh.domainCollection(k).noElements % Loop through elements in Domain
+                    %globalElement=Mesh.domainCollection(k).Elements(kk).elmNumber;
                     for l=1:size(Mesh.domainCollection(k).Elements(kk).G2,1) % Loop through Quadrature Points
                         Cords=Mesh.domainCollection(k).Elements(kk).getIntCord(l); Jw=Cords(3); % Jw = Jacobian * Quadrature Weight
                         for a=1:n % Loop over Shape Functions+
                             for b=1:n % Loop over Shape Functions
                                 if b>=a
-                                    if RKv(a,k,l,1)~=0 && RKv(b,k,l,1)~=0
-                                        NDa=[RKdx(a,k,l,1);RKdy(a,k,l,1)];
-                                        NDb=[RKdx(b,k,l,1);RKdy(b,k,l,1)];
+                                    if RKv(a,kk,l,1)~=0 && RKv(b,kk,l,1)~=0
+                                        NDa=[RKdx(a,kk,l,1);RKdy(a,kk,l,1)];
+                                        NDb=[RKdx(b,kk,l,1);RKdy(b,kk,l,1)];
                                         Ba=[NDa(1),0;0,NDa(2);NDa(2),NDa(1)];
                                         Bb=[NDb(1),0;0,NDb(2);NDb(2),NDb(1)];
                                         Kab=Ba'*C*Bb*Jw;
@@ -142,7 +149,7 @@ classdef Cloud2 < handle
                                 end
                             end
                             if sum(Q~=0)>0
-                                value=RKv(a,k,l,1);
+                                value=RKv(a,globalElement,l,1);
                                 Ftemp(2*a-1,1)=Ftemp(2*a-1,1)+value*Jw*Q(1);
                                 Ftemp(2*a,1)=Ftemp(2*a,1)+value*Jw*Q(2);
                             end
@@ -159,139 +166,145 @@ classdef Cloud2 < handle
         end
         
         function F=integrateBoundary(obj,Mesh,BN)
-            F=zeros(2*obj.numberOfNodes,1);
-            hw=waitbar(0/Mesh.noElements,'Computing Boundary Integration');
-            for j=1:Mesh.noElements
-                h=BN(Mesh.Elements(j).dof);  
-                waitbar(j/Mesh.noElements,hw,'Computing Boundary Integration')
-                if sum((sum(h~=0))) % Then we have tractions on the element
-                    nInt=Mesh.Elements(j).orderInt;
-                    G1=Mesh.Elements(j).G1;
-                    if (h(1)~=0 && h(3)~=0) || (h(2)~=0 && h(4)~=0)
-                        % Surface 1: eta=-1
-                        for i=1:nInt % perform Guass Integration [-1,1] over domain
-                            Mesh.Elements(j).Shape.setAll(G1(i,1),-1);
-                            Cords=[Mesh.Elements(j).Shape.X;Mesh.Elements(j).Shape.Y];
-                            js=sqrt((Mesh.Elements(j).Shape.Xxi)^2+(Mesh.Elements(j).Shape.Yxi)^2);
-                            hInt=[h(1);h(2)]*(1-(1+G1(i,1))/2)+(1+G1(i,1))/2*[h(3);h(4)];
-                            for w=1:obj.numberOfNodes
-                                if norm(Cords-obj.Nodes(w).cordinates)<=obj.Nodes(w).a
-                                    F(2*w-1:2*w)=F(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*hInt*js*G1(i,2);
+            F=zeros(2*obj.numberOfNodes,1,Mesh.noDomains);
+            parfor k=1:Mesh.noDomains % Loop through Domains
+                Ftemp=zeros(2*obj.numberOfNodes,1);
+                myMesh=Mesh.domainCollection(k);
+                for j=1:myMesh.noElements
+                    h=BN(myMesh.Elements(j).dof);
+                    if sum((sum(h~=0))) % Then we have tractions on the element
+                        nInt=myMesh.Elements(j).orderInt;
+                        G1=myMesh.Elements(j).G1;
+                        if (h(1)~=0 && h(3)~=0) || (h(2)~=0 && h(4)~=0)
+                            % Surface 1: eta=-1
+                            for i=1:nInt % perform Guass Integration [-1,1] over domain
+                                myMesh.Elements(j).Shape.setAll(G1(i,1),-1);
+                                Cords=[myMesh.Elements(j).Shape.X;myMesh.Elements(j).Shape.Y];
+                                js=sqrt((myMesh.Elements(j).Shape.Xxi)^2+(myMesh.Elements(j).Shape.Yxi)^2);
+                                hInt=[h(1);h(2)]*(1-(1+G1(i,1))/2)+(1+G1(i,1))/2*[h(3);h(4)];
+                                for w=1:obj.numberOfNodes
+                                    if norm(Cords-obj.Nodes(w).cordinates)<=obj.Nodes(w).a
+                                        Ftemp(2*w-1:2*w)=Ftemp(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*hInt*js*G1(i,2);
+                                    end
                                 end
                             end
                         end
-                    end
-                    if (h(3)~=0 && h(5)~=0) || (h(4)~=0 && h(6)~=0)
-                        % Surface 2: xi=1
-                        for i=1:nInt % perform Guass Integration [-1,1] over domain
-                            Mesh.Elements(j).Shape.setAll(1,G1(i,1));
-                            Cords=[Mesh.Elements(j).Shape.X;Mesh.Elements(j).Shape.Y];
-                            js=sqrt((Mesh.Elements(j).Shape.Xeta)^2+(Mesh.Elements(j).Shape.Yeta)^2);
-                            hInt=[h(3);h(4)]*(1-(1+G1(i,1))/2)+(1+G1(i,1))/2*[h(5);h(6)];
-                            for w=1:obj.numberOfNodes
-                                if norm(Cords-obj.Nodes(w).cordinates)<=obj.Nodes(w).a
-                                    F(2*w-1:2*w)=F(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*hInt*js*G1(i,2);
+                        if (h(3)~=0 && h(5)~=0) || (h(4)~=0 && h(6)~=0)
+                            % Surface 2: xi=1
+                            for i=1:nInt % perform Guass Integration [-1,1] over domain
+                                myMesh.Elements(j).Shape.setAll(1,G1(i,1));
+                                Cords=[myMesh.Elements(j).Shape.X;myMesh.Elements(j).Shape.Y];
+                                js=sqrt((myMesh.Elements(j).Shape.Xeta)^2+(myMesh.Elements(j).Shape.Yeta)^2);
+                                hInt=[h(3);h(4)]*(1-(1+G1(i,1))/2)+(1+G1(i,1))/2*[h(5);h(6)];
+                                for w=1:obj.numberOfNodes
+                                    if norm(Cords-obj.Nodes(w).cordinates)<=obj.Nodes(w).a
+                                        Ftemp(2*w-1:2*w)=Ftemp(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*hInt*js*G1(i,2);
+                                    end
                                 end
                             end
                         end
-                    end
-                    if (h(5)~=0 && h(7)~=0) || (h(6)~=0 && h(8)~=0)
-                        % Surface 3: eta=1
-                        for i=1:nInt % perform Guass Integration [-1,1] over domain
-                            Mesh.Elements(j).Shape.setAll(G1(i,1),1);
-                            Cords=[Mesh.Elements(j).Shape.X;Mesh.Elements(j).Shape.Y];
-                            js=sqrt((Mesh.Elements(j).Shape.Xxi)^2+(Mesh.Elements(j).Shape.Yxi)^2);
-                            hInt=[h(5);h(6)]*(1-(1+G1(i,1))/2)+(1+G1(i,1))/2*[h(7);h(8)];
-                            for w=1:obj.numberOfNodes
-                                if norm(Cords-obj.Nodes(w).cordinates)<=obj.Nodes(w).a
-                                    F(2*w-1:2*w)=F(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*hInt*js*G1(i,2);
+                        if (h(5)~=0 && h(7)~=0) || (h(6)~=0 && h(8)~=0)
+                            % Surface 3: eta=1
+                            for i=1:nInt % perform Guass Integration [-1,1] over domain
+                                myMesh.Elements(j).Shape.setAll(G1(i,1),1);
+                                Cords=[myMesh.Elements(j).Shape.X;myMesh.Elements(j).Shape.Y];
+                                js=sqrt((myMesh.Elements(j).Shape.Xxi)^2+(myMesh.Elements(j).Shape.Yxi)^2);
+                                hInt=[h(5);h(6)]*(1-(1+G1(i,1))/2)+(1+G1(i,1))/2*[h(7);h(8)];
+                                for w=1:obj.numberOfNodes
+                                    if norm(Cords-obj.Nodes(w).cordinates)<=obj.Nodes(w).a
+                                        Ftemp(2*w-1:2*w)=Ftemp(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*hInt*js*G1(i,2);
+                                    end
                                 end
                             end
                         end
-                    end
-                    if (h(1)~=0 && h(7)~=0) || (h(2)~=0 && h(8)~=0)
-                        % Surface 4: xi=-1
-                        for i=1:nInt % perform Guass Integration [-1,1] over domain
-                            Mesh.Elements(j).Shape.setAll(-1,G1(i,1));
-                            Cords=[Mesh.Elements(j).Shape.X;Mesh.Elements(j).Shape.Y];
-                            js=sqrt((Mesh.Elements(j).Shape.Xeta)^2+(Mesh.Elements(j).Shape.Yeta)^2);
-                            hInt=[h(7);h(8)]*(1-(1+G1(i,1))/2)+(1+G1(i,1))/2*[h(1);h(2)];
-                            for w=1:obj.numberOfNodes
-                                if norm(Cords-obj.Nodes(w).cordinates)<=obj.Nodes(w).a
-                                    F(2*w-1:2*w)=F(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*hInt*js*G1(i,2);
+                        if (h(1)~=0 && h(7)~=0) || (h(2)~=0 && h(8)~=0)
+                            % Surface 4: xi=-1
+                            for i=1:nInt % perform Guass Integration [-1,1] over domain
+                                myMesh.Elements(j).Shape.setAll(-1,G1(i,1));
+                                Cords=[myMesh.Elements(j).Shape.X;myMesh.Elements(j).Shape.Y];
+                                js=sqrt((myMesh.Elements(j).Shape.Xeta)^2+(myMesh.Elements(j).Shape.Yeta)^2);
+                                hInt=[h(7);h(8)]*(1-(1+G1(i,1))/2)+(1+G1(i,1))/2*[h(1);h(2)];
+                                for w=1:obj.numberOfNodes
+                                    if norm(Cords-obj.Nodes(w).cordinates)<=obj.Nodes(w).a
+                                        Ftemp(2*w-1:2*w)=Ftemp(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*hInt*js*G1(i,2);
+                                    end
                                 end
                             end
                         end
                     end
                 end
+                F(:,1,k)=Ftemp;
             end
-            close(hw);
+            F=sum(F,3);
         end
         
         function F=integrateExactBoundary(obj,Mesh,BN,exactTraction)
-            F=zeros(2*obj.numberOfNodes,1);
-            hw=waitbar(0/Mesh.noElements,'Computing Boundary Integration');
-            for j=1:Mesh.noElements
-                h=BN(Mesh.Elements(j).dof);  
-                waitbar(j/Mesh.noElements,hw,'Computing Boundary Integration')
-                if sum((sum(h~=0))) % Then we have tractions on the element
-                    nInt=Mesh.Elements(j).orderInt;
-                    G1=Mesh.Elements(j).G1;
-                    if (h(1)~=0 && h(3)~=0) || (h(2)~=0 && h(4)~=0)
-                        % Surface 1: eta=-1
-                        for i=1:nInt % perform Guass Integration [-1,1] over domain
-                            Mesh.Elements(j).Shape.setAll(G1(i,1),-1);
-                            Cords=[Mesh.Elements(j).Shape.X;Mesh.Elements(j).Shape.Y];
-                            js=sqrt((Mesh.Elements(j).Shape.Xxi)^2+(Mesh.Elements(j).Shape.Yxi)^2);
-                            for w=1:obj.numberOfNodes
-                                if norm(Cords-obj.Nodes(w).cordinates)<=obj.Nodes(w).a
-                                    F(2*w-1:2*w)=F(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*exactTraction(Cords(1))*js*G1(i,2);
+            F=zeros(2*obj.numberOfNodes,1,Mesh.noDomains);
+            parfor k=1:Mesh.noDomains % Loop through Domains
+                Ftemp=zeros(2*obj.numberOfNodes,1);
+                myMesh=Mesh.domainCollection(k);
+                for j=1:myMesh.noElements
+                    h=BN(myMesh.Elements(j).dof);
+                    if sum((sum(h~=0))) % Then we have tractions on the element
+                        nInt=myMesh.Elements(j).orderInt;
+                        G1=myMesh.Elements(j).G1;
+                        if (h(1)~=0 && h(3)~=0) || (h(2)~=0 && h(4)~=0)
+                            % Surface 1: eta=-1
+                            for i=1:nInt % perform Guass Integration [-1,1] over domain
+                                myMesh.Elements(j).Shape.setAll(G1(i,1),-1);
+                                Cords=[myMesh.Elements(j).Shape.X;myMesh.Elements(j).Shape.Y];
+                                js=sqrt((myMesh.Elements(j).Shape.Xxi)^2+(myMesh.Elements(j).Shape.Yxi)^2);
+                                for w=1:obj.numberOfNodes
+                                    if norm(Cords-obj.Nodes(w).cordinates)<=obj.Nodes(w).a
+                                        Ftemp(2*w-1:2*w)=Ftemp(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*exactTraction(Cords(1))*js*G1(i,2);
+                                    end
                                 end
                             end
                         end
-                    end
-                    if (h(3)~=0 && h(5)~=0) || (h(4)~=0 && h(6)~=0)
-                        % Surface 2: xi=1
-                        for i=1:nInt % perform Guass Integration [-1,1] over domain
-                            Mesh.Elements(j).Shape.setAll(1,G1(i,1));
-                            Cords=[Mesh.Elements(j).Shape.X;Mesh.Elements(j).Shape.Y];
-                            js=sqrt((Mesh.Elements(j).Shape.Xeta)^2+(Mesh.Elements(j).Shape.Yeta)^2);             
-                            for w=1:obj.numberOfNodes
-                                if norm(Cords-obj.Nodes(w).cordinates)<=obj.Nodes(w).a
-                                    F(2*w-1:2*w)=F(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*exactTraction(Cords(2))*js*G1(i,2);
+                        if (h(3)~=0 && h(5)~=0) || (h(4)~=0 && h(6)~=0)
+                            % Surface 2: xi=1
+                            for i=1:nInt % perform Guass Integration [-1,1] over domain
+                                myMesh.Elements(j).Shape.setAll(1,G1(i,1));
+                                Cords=[myMesh.Elements(j).Shape.X;myMesh.Elements(j).Shape.Y];
+                                js=sqrt((myMesh.Elements(j).Shape.Xeta)^2+(myMesh.Elements(j).Shape.Yeta)^2);
+                                for w=1:obj.numberOfNodes
+                                    if norm(Cords-obj.Nodes(w).cordinates)<=obj.Nodes(w).a
+                                        Ftemp(2*w-1:2*w)=Ftemp(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*exactTraction(Cords(2))*js*G1(i,2);
+                                    end
                                 end
                             end
                         end
-                    end
-                    if (h(5)~=0 && h(7)~=0) || (h(6)~=0 && h(8)~=0)
-                        % Surface 3: eta=1
-                        for i=1:nInt % perform Guass Integration [-1,1] over domain
-                            Mesh.Elements(j).Shape.setAll(G1(i,1),1);
-                            Cords=[Mesh.Elements(j).Shape.X;Mesh.Elements(j).Shape.Y];
-                            js=sqrt((Mesh.Elements(j).Shape.Xxi)^2+(Mesh.Elements(j).Shape.Yxi)^2);          
-                            for w=1:obj.numberOfNodes
-                                if norm(Cords-obj.Nodes(w).cordinates)<=obj.Nodes(w).a
-                                    F(2*w-1:2*w)=F(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*exactTraction(Cords(1))*js*G1(i,2);
+                        if (h(5)~=0 && h(7)~=0) || (h(6)~=0 && h(8)~=0)
+                            % Surface 3: eta=1
+                            for i=1:nInt % perform Guass Integration [-1,1] over domain
+                                myMesh.Elements(j).Shape.setAll(G1(i,1),1);
+                                Cords=[myMesh.Elements(j).Shape.X;myMesh.Elements(j).Shape.Y];
+                                js=sqrt((myMesh.Elements(j).Shape.Xxi)^2+(myMesh.Elements(j).Shape.Yxi)^2);
+                                for w=1:obj.numberOfNodes
+                                    if norm(Cords-obj.Nodes(w).cordinates)<=obj.Nodes(w).a
+                                        Ftemp(2*w-1:2*w)=Ftemp(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*exactTraction(Cords(1))*js*G1(i,2);
+                                    end
                                 end
                             end
                         end
-                    end
-                    if (h(1)~=0 && h(7)~=0) || (h(2)~=0 && h(8)~=0)
-                        % Surface 4: xi=-1
-                        for i=1:nInt % perform Guass Integration [-1,1] over domain
-                            Mesh.Elements(j).Shape.setAll(-1,G1(i,1));
-                            Cords=[Mesh.Elements(j).Shape.X;Mesh.Elements(j).Shape.Y];
-                            js=sqrt((Mesh.Elements(j).Shape.Xeta)^2+(Mesh.Elements(j).Shape.Yeta)^2);
-                            for w=1:obj.numberOfNodes
-                                if norm(Cords-obj.Nodes(w).cordinates)<=obj.Nodes(w).a
-                                    F(2*w-1:2*w)=F(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*exactTraction(Cords(2))*js*G1(i,2);
+                        if (h(1)~=0 && h(7)~=0) || (h(2)~=0 && h(8)~=0)
+                            % Surface 4: xi=-1
+                            for i=1:nInt % perform Guass Integration [-1,1] over domain
+                                myMesh.Elements(j).Shape.setAll(-1,G1(i,1));
+                                Cords=[myMesh.Elements(j).Shape.X;myMesh.Elements(j).Shape.Y];
+                                js=sqrt((myMesh.Elements(j).Shape.Xeta)^2+(myMesh.Elements(j).Shape.Yeta)^2);
+                                for w=1:obj.numberOfNodes
+                                    if norm(Cords-obj.Nodes(w).cordinates)<=obj.Nodes(w).a
+                                        Ftemp(2*w-1:2*w)=Ftemp(2*w-1:2*w)+obj.Nodes(w).sF.getValue(Cords)*exactTraction(Cords(2))*js*G1(i,2);
+                                    end
                                 end
                             end
                         end
                     end
                 end
+                F(:,1,k)=Ftemp;
             end
-            close(hw);
+            F=sum(F,3);
         end
         
         function U=returnInterpolatedU(obj,x)

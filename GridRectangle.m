@@ -11,12 +11,13 @@ nN=(numElx+1)*(numEly+1); % Number of Nodes
 dofx=1:2:nN*2;
 dofy=2:2:nN*2;
 NN= [(1:nN)',reshape(X',[],1),reshape(Y',[],1),dofx',dofy']; % Global Nodes
-NEL=zeros(n,4);
+NEL=zeros(n,5);
 
 for i=1:n % Loops through the elements
    row=ceil(i/numElx);
    column=mod(i-1,(numElx))+1;
-   NEL(i,:)=[(row-1)*(numElx+1)+column,(row-1)*(numElx+1)+column+1,(row)*(numElx+1)+column+1,(row)*(numElx+1)+column];
+   NEL(i,2:5)=[(row-1)*(numElx+1)+column,(row-1)*(numElx+1)+column+1,(row)*(numElx+1)+column+1,(row)*(numElx+1)+column];
 end
+   NEL(:,1)=(1:n)';
 
 end
