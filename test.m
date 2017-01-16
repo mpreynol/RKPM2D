@@ -1,7 +1,7 @@
 %% Create Rectangular Mesh for Quadrature
 %Set up Mesh Geometry:
-[NN,NEL,X,Y] = GridRectangle(20,1,40,5);
-Mesh=QuadMesh(NN,NEL,2);
+[NN,NEL,X,Y] = GridRectangle(20,1,100,4);
+Mesh=QuadMesh(NN,NEL,5);
 %SplitMesh=Domains(NN,NEL,2,8);
 
 % Set up Natural Boundary:
@@ -13,7 +13,7 @@ BN=Boundary(NN,b2); BN(BN==-Inf)=0;
 %MeshPlot.plotQuadraturePointsDomains(SplitMesh);
 
 %% Generate Uniform Point Cloud:
-[NNp] = GridRectangle(20,1,40,6);
+[NNp] = GridRectangle(20,1,100,4);
 %Set up Essential Boundary:
 b1=[-eps,eps,0.5-eps,0.5+eps,[0,0]];
 b2=[-eps,eps,0-eps,0+eps,[0,-Inf]];
@@ -23,7 +23,7 @@ xNodes=NNp(:,2);
 yNodes=NNp(:,3);
 Nodes=[(1:length(xNodes))',xNodes,yNodes,reshape(BE,2,[])'];
 PointCloud=Cloud(Nodes,1,1);
-%PointCloud=Cloud2(Nodes,2,2);
+%PointCloud2=Cloud2(Nodes,1,1);
 %PointCloud.plotCloud()
 
 % %% Define Random Point Cloud Object:
@@ -45,13 +45,16 @@ PointCloud=Cloud(Nodes,1,1);
 %PointCloud.checkPU(Mesh)
 %PointCloud.checkNU(Mesh)
 %PointCloud.checkLinearConsistency(Mesh)
+%% Test
+Mesh.WeightatQuadrature(PointCloud);
 
 %% Build Arrays:
 C=Constit(1E6,0.3,'Plane Stress').C;
-%SplitMesh.RKPMatQuad(PointCloud); % Store Values of Shape Functions 
-[RKv,RKdx,DRKdy]=Mesh.RKPMatQuadrature(PointCloud); % Store Values of Shape Functions with domain decomposition
+%[RKv,RKdx,DRKdy]=SplitMesh.RKPMatQuad(PointCloud); % Store Values of Shape Functions W/
+%DECOMP
+[RKv,RKdx,DRKdy]=Mesh.RKPMatQuadrature(PointCloud); % 
 Q=[0;0];
-%[K,Fb]=PointCloud.integrateDomain(C,Q,SplitMesh); % Build Arrays
+%[K,Fb]=PointCloud2.integrateDomain(C,Q,SplitMesh,RKv,RKdx,DRKdy); % Build Arrays
 [K,Fb]=PointCloud.integrateDomain(C,Q,Mesh,RKv,RKdx,DRKdy); % Build Arrays
 Fh=PointCloud.integrateExactBoundary(Mesh,BN,@parabolicStress); sum(Fh);
 F=Fb+Fh;
@@ -75,5 +78,6 @@ PointCloud.parseSolution(u);
 %     hold on
 % end
 % 
-% %%
+
+%%
 PointCloud.returnInterpolatedU([20;0])

@@ -115,25 +115,54 @@ classdef QuadMesh < handle
             end
         end
         
+        function WeightatQuadrature(obj,Cloud)
+           % Function takes in cloud handle to calculate weight functions 
+           size1=Cloud.numberOfNodes;
+           size2=obj.orderInt^2;
+           Elements=obj.Elements; % Create Module Copy of Element Data Structure
+           parfor i=1:obj.noElements
+               wtemp=zeros(3,size1,size2);
+               myElement=Elements(i); % Create Loop Copy of Array
+               for j=1:size2
+                   Cords=myElement.getIntCord(j); x=Cords(1); y=Cords(2);
+                    for a=1:size1
+                       CordsA=Cloud.Nodes(a).cordinates; 
+                       if (CordsA(1)-x)<=Cloud.Nodes(a).a && (CordsA(2)-y)<=Cloud.Nodes(a).a
+                           weightstemp=Cloud.Nodes(a).weight.weights([x;y]);
+                           wtemp(1,a,j)=Cloud.Nodes(a).weight.w([x;y],weightstemp);
+                           wxtemp=Cloud.Nodes(a).weight.wx([x;y],weightstemp);
+                           wtemp(2,a,j)=wxtemp(1);
+                           wtemp(3,a,j)=wxtemp(2);
+                       end
+                    end
+               end
+               myElement.setStoredWeight(wtemp);
+               Elements(i)=myElement; % Assign Local Handle to Module
+           end
+           obj.Elements=Elements; % Assign Module to Global
+        end
+        
         function [RKv,RKdx,RKdy]=RKPMatQuadrature(obj,Cloud)
            % Function takes in Cloud handle to calculate RKPM shape
            % function values at each Quadrature Point for later integration
            size1=Cloud.numberOfNodes;
            size2=obj.orderInt^2;
            RKv=zeros(size1,obj.noElements,size2,1);
-           RKdx=zeros(size1,obj.noElements,size2,1);
-           RKdy=zeros(size1,obj.noElements,size2,1);
+           RKdx=RKv;
+           RKdy=RKv;
            Elements=obj.Elements; % Create Module Copy of Element Data Structure
-           parfor i=1:obj.noElements
+           for i=1:obj.noElements
                myElement=Elements(i); % Create Loop Copy of Array
                StoredRKPM=zeros(3,size1,size2);
+               weightsAtQuadrature=myElement.StoredWeight;
                for j=1:size2
-                   Cords=Elements(i).getIntCord(j); x=Cords(1); y=Cords(2);
+                   Cords=myElement.getIntCord(j); x=Cords(1); y=Cords(2);
+                   wAQ=weightsAtQuadrature(:,:,j);
                    for a=1:size1
-                       CordsA=Cloud.Nodes(a).cordinates; 
-                       if (CordsA(1)-x)<=Cloud.Nodes(a).a && (CordsA(2)-y)<=Cloud.Nodes(a).a
-                           StoredRKPM(1,a,j)=Cloud.Nodes(a).sF.getValue([x;y]);
-                           DX=Cloud.Nodes(a).sF.getValueDx([x;y]);
+                       %CordsA=Cloud.Nodes(a).cordinates; 
+                       if wAQ(1,a)~=0
+                           StoredRKPM(1,a,j)=Cloud.Nodes(a).sF.getValue([x;y],wAQ,a);
+                           DX=Cloud.Nodes(a).sF.getValueDx([x;y],wAQ,a);
                            StoredRKPM(2,a,j)=DX(1);
                            StoredRKPM(3,a,j)=DX(2);
                            RKv(a,i,j,1)=StoredRKPM(1,a,j);

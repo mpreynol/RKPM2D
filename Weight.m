@@ -25,16 +25,24 @@ classdef Weight < handle
             df(1)=obj.p*(((x(1)-obj.s(1))/obj.a)^2+((x(2)-obj.s(2))/obj.a)^2)^(obj.p-1)*2*(x(1)-obj.s(1))/(obj.a^2);
             df(2)=obj.p*(((x(1)-obj.s(1))/obj.a)^2+((x(2)-obj.s(2))/obj.a)^2)^(obj.p-1)*2*(x(2)-obj.s(2))/(obj.a^2);
         end        
-        function w = w(obj,x) % x,s is an array of length SD
-            w=obj.weights(x);
+        function w = w(obj,x,weights) % x,s is an array of length SD
+            if nargin>2
+                w=weights;
+            else
+                w=obj.weights(x);
+            end
             w=w(1)*w(2);
             if obj.singular
                     F=obj.f(x);
                     w=w/F;
             end
         end        
-        function wx = wx(obj,x) % x,s is an array of length SD
-            weights=obj.weights(x);
+        function wx = wx(obj,x,weights) % x,s is an array of length SD
+            if nargin>2
+                %weights;
+            else
+                weights=obj.weights(x);
+            end
             derivative=obj.derivative(x);
             wx=zeros(length(x),1);
             F=obj.f(x);

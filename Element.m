@@ -14,6 +14,7 @@ classdef Element < handle
         StoredRKPM=[]; % Values of RKPM Shape Functions stored at each integration point size: (1+SD)x(NP)xGP
         % Order of RKPM array is same as G2 Array!!!
         % The third Dimension of the RKPM array handles gauss points
+        StoredWeight=[]; % Stored Value of Weight Functions
     end
     
     methods
@@ -39,6 +40,11 @@ classdef Element < handle
         
         function setStoredRKPM(obj,Value)
             obj.StoredRKPM=Value;
+        end
+        
+        function setStoredWeight(obj,Value)
+            %Dimensions: (1+SD)xNPxGP, 3rd dimension depends on gauss order
+            obj.StoredWeight=Value;
         end
         
     end

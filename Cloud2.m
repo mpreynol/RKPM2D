@@ -113,7 +113,7 @@ classdef Cloud2 < handle
             end
         end
         
-        function [K,F]=integrateDomain(obj,C,Q,Mesh)
+        function [K,F]=integrateDomain(obj,C,Q,Mesh,RKv,RKdx,RKdy)
             n=obj.numberOfNodes;
             K=zeros(n*2,n*2,Mesh.noDomains);
             F=zeros(n*2,1,Mesh.noDomains);
@@ -126,9 +126,9 @@ classdef Cloud2 < handle
                         for a=1:n % Loop over Shape Functions+
                             for b=1:n % Loop over Shape Functions
                                 if b>=a
-                                    if Mesh.domainCollection(k).Elements(kk).StoredRKPM(1,a,l)*Mesh.domainCollection(k).Elements(kk).StoredRKPM(1,b,l)
-                                        NDa=Mesh.domainCollection(k).Elements(kk).StoredRKPM(2:3,a,l);
-                                        NDb=Mesh.domainCollection(k).Elements(kk).StoredRKPM(2:3,b,l);
+                                    if RKv(a,k,l,1)~=0 && RKv(b,k,l,1)~=0
+                                        NDa=[RKdx(a,k,l,1);RKdy(a,k,l,1)];
+                                        NDb=[RKdx(b,k,l,1);RKdy(b,k,l,1)];
                                         Ba=[NDa(1),0;0,NDa(2);NDa(2),NDa(1)];
                                         Bb=[NDb(1),0;0,NDb(2);NDb(2),NDb(1)];
                                         Kab=Ba'*C*Bb*Jw;
@@ -142,8 +142,9 @@ classdef Cloud2 < handle
                                 end
                             end
                             if sum(Q~=0)>0
-                                Ftemp(2*a-1,1)=Ftemp(2*a-1,1)+Mesh.domainCollection(k).Elements(kk).StoredRKPM(1,a,l)*Jw*Q(1);
-                                Ftemp(2*a,1)=Ftemp(2*a,1)+Mesh.domainCollection(k).Elements(kk).StoredRKPM(1,a,l)*Jw*Q(2);
+                                value=RKv(a,k,l,1);
+                                Ftemp(2*a-1,1)=Ftemp(2*a-1,1)+value*Jw*Q(1);
+                                Ftemp(2*a,1)=Ftemp(2*a,1)+value*Jw*Q(2);
                             end
                         end
                     end

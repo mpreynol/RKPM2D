@@ -44,6 +44,12 @@ classdef Domains < handle
                 obj.domainCollection(i).RKPMatQuadrature(Cloud);
             end
         end
+        
+        function weightatQuad(obj,Cloud)
+            for i=1:obj.noDomains
+                obj.domainCollection(i).WeightatQuadrature(Cloud);
+            end
+        end
     end
     
 end
