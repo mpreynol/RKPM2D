@@ -4,9 +4,9 @@ function [tau] = parabolicStress(y,y0,V,h)
 % y0 is the position of the neutral axis (used for coordinate trans).
 tau=zeros(2,1);
 if nargin==1
-   y0=0.5;
-   V=-3.14E1;
-   h=1;
+   y0=1;
+   V=-20E3;
+   h=2;
 end
 y=y-y0;
 tau(2)=3*V/(2*h)*(1-4*y.^2/(h^2));

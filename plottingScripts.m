@@ -1,7 +1,7 @@
 % Plot Weight Function(Box):
-a=1;
+a=3;
 xI=[0,0];
-[X,Y]=meshgrid(-1:0.1:1);
+[X,Y]=meshgrid(0:0.08:10,0:0.08:2);
 Z=zeros(size(X,1));
 W=Weight(xI,a,0);
 for i=1:size(X,1) % Columns
@@ -34,7 +34,8 @@ surf(X,Y,Z)
 
 %% Plot Shape Function
 figure(1)
-shape=11;
+shape=10;
+[X,Y]=meshgrid(0:0.1:10,0:0.1:2);
 Z=zeros(size(X,1));
 for i=1:size(X,1) % Columns
     for j=1:size(Y,2) % Rows  
